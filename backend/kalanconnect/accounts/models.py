@@ -35,12 +35,14 @@ class User(AbstractUser):
         PARENT = "parent", "Parent"
         TEACHER = "teacher", "Professeur"
         ADMIN = "admin", "Administrateur"
+        STUDENT = "student", "Élève"
+        ETUDIANT = "etudiant", "Étudiant"
 
     # Supprime le champ username hérité d'AbstractUser
     username = None
 
     role = models.CharField(
-        max_length=10,
+        max_length=15,
         choices=Role.choices,
         default=Role.PARENT,
     )
@@ -83,5 +85,15 @@ class User(AbstractUser):
         return self.role == self.Role.TEACHER
 
     @property
+    def is_student(self):
+        return self.role == self.Role.STUDENT
+
+    @property
+    def is_etudiant(self):
+        return self.role == self.Role.ETUDIANT
+
+    @property
     def has_active_subscription(self):
-        return self.subscriptions.filter(status="active").exists()
+        if self.role in (self.Role.PARENT, self.Role.ETUDIANT):
+            return self.subscriptions.filter(status="active").exists()
+        return False

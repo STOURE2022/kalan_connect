@@ -8,7 +8,7 @@ export interface User {
   first_name: string;
   last_name: string;
   email: string;
-  role: "parent" | "teacher" | "admin" | "student";
+  role: "parent" | "teacher" | "admin" | "student" | "etudiant";
   avatar: string | null;
   city: string;
   neighborhood: string;
@@ -231,6 +231,7 @@ export interface AdminStats {
   total_bookings: number;
   total_revenue: number;
   pending_verifications: number;
+  pending_reports: number;
   active_subscriptions: number;
   new_users_this_month: number;
   bookings_this_month: number;
@@ -284,6 +285,42 @@ export interface TeacherStats {
   this_month_bookings: number;
 }
 
+// ── Booking Pack types ──
+
+export interface BookingPack {
+  id: number;
+  pack_type: "single" | "pack_4" | "pack_8" | "monthly";
+  buyer: UserMinimal;
+  teacher: number;
+  teacher_name: string;
+  subject: number;
+  subject_name: string;
+  total_sessions: number;
+  used_sessions: number;
+  remaining_sessions: number;
+  price_per_session: number;
+  total_price: number;
+  discount_percent: number;
+  status: "active" | "exhausted" | "expired";
+  expires_at: string | null;
+  created_at: string;
+}
+
+// ── Report types ──
+
+export interface Report {
+  id: number;
+  reporter: UserMinimal;
+  reported_user: number;
+  reported_user_name: string;
+  booking: number | null;
+  reason: "bad_behavior" | "no_show" | "inappropriate" | "fraud" | "low_quality" | "other";
+  description: string;
+  status: "pending" | "reviewed" | "resolved" | "dismissed";
+  admin_notes: string;
+  created_at: string;
+}
+
 // ── Navigation types ──
 
 export type RootStackParamList = {
@@ -305,4 +342,8 @@ export type RootStackParamList = {
   AddChild: undefined;
   AdminUserDetail: { userId: number };
   AdminTeacherVerification: { teacherId: number };
+  Progression: undefined;
+  AdminBookings: undefined;
+  Reports: undefined;
+  ReportCreate: { userId: number; userName: string };
 };

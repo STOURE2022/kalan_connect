@@ -11,6 +11,7 @@ interface AuthContextType {
   isTeacher: boolean;
   isAdmin: boolean;
   isStudent: boolean;
+  isEtudiant: boolean;
   hasSubscription: boolean;
   login: (phone: string, password: string) => Promise<void>;
   register: (data: Parameters<typeof authAPI.register>[0]) => Promise<User>;
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isTeacher: user?.role === "teacher",
         isAdmin: user?.role === "admin",
         isStudent: user?.role === "student",
+        isEtudiant: user?.role === "etudiant",
         hasSubscription: user?.has_active_subscription ?? false,
         login,
         register,

@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { adminAPI } from "@/api/services";
 import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
 import { formatPrice } from "@/utils/helpers";
+import Toast from "react-native-toast-message";
 import type { AdminStats } from "@/types";
 
 export default function AdminDashboardScreen() {
@@ -28,6 +29,7 @@ export default function AdminDashboardScreen() {
       const data = await adminAPI.getDashboard();
       setStats(data);
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }
@@ -113,7 +115,13 @@ export default function AdminDashboardScreen() {
     {
       label: "Réservations",
       icon: "calendar-outline" as const,
-      onPress: () => navigation.navigate("Cours"),
+      onPress: () => navigation.navigate("AdminBookings"),
+    },
+    {
+      label: "Signalements",
+      icon: "flag-outline" as const,
+      badge: stats?.pending_reports || 0,
+      onPress: () => navigation.navigate("Reports"),
     },
     {
       label: "Notifications",

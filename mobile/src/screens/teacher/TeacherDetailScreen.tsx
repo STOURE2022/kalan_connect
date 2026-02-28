@@ -17,6 +17,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { colors, spacing, radius, fontSize } from "@/utils/theme";
 import { formatPrice, DAYS_FR } from "@/utils/helpers";
+import ReportModal from "@/components/ReportModal";
 import type { TeacherProfile, Review } from "@/types";
 
 export default function TeacherDetailScreen() {
@@ -27,6 +28,7 @@ export default function TeacherDetailScreen() {
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reportVisible, setReportVisible] = useState(false);
 
   const teacherId = route.params.id;
 
@@ -232,7 +234,30 @@ export default function TeacherDetailScreen() {
         )}
       </View>
 
+      {/* Report button */}
+      {isLoggedIn && (
+        <View style={styles.reportSection}>
+          <TouchableOpacity
+            style={styles.reportBtn}
+            onPress={() => setReportVisible(true)}
+          >
+            <Ionicons name="flag-outline" size={16} color={colors.red[500]} />
+            <Text style={styles.reportBtnText}>Signaler ce professeur</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={{ height: 100 }} />
+
+      {/* Report Modal */}
+      {teacher && (
+        <ReportModal
+          visible={reportVisible}
+          onClose={() => setReportVisible(false)}
+          reportedUserId={teacher.user.id}
+          reportedUserName={`${teacher.user.first_name} ${teacher.user.last_name}`}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -292,4 +317,20 @@ const styles = StyleSheet.create({
   reviewHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   reviewerName: { fontSize: 13, fontWeight: "600", color: colors.gray[700], flex: 1 },
   reviewComment: { fontSize: 13, color: colors.gray[600], marginTop: spacing.xs, lineHeight: 19 },
+  // Report
+  reportSection: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    alignItems: "center",
+  },
+  reportBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+  },
+  reportBtnText: {
+    fontSize: 13,
+    color: colors.red[500],
+  },
 });

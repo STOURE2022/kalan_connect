@@ -1,33 +1,45 @@
 """
-KalanConnect — Views Réservations & Avis
+KalanConnect — Views Réservations, Avis, Packs & Signalements
 """
 
 from django.db.models import Avg
 from rest_framework import generics, permissions, status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from kalanconnect.teachers.models import TeacherProfile
 
-from .models import Booking, Review
+from .models import Booking, BookingPack, Report, Review
 from .serializers import (
     BookingCreateSerializer,
+    BookingPackCreateSerializer,
+    BookingPackSerializer,
     BookingSerializer,
+    ReportAdminSerializer,
+    ReportSerializer,
     ReviewSerializer,
 )
 
 
-class IsParentWithSubscription(permissions.BasePermission):
-    """Le parent doit avoir un abonnement actif pour réserver"""
+class IsParentOrEtudiantWithSubscription(permissions.BasePermission):
+    """Le parent ou l'étudiant doit avoir un abonnement actif pour réserver"""
 
     message = "Vous devez avoir un abonnement actif pour réserver un cours."
 
     def has_permission(self, request, view):
+        user = request.user
         return (
-            request.user.is_authenticated
-            and request.user.is_parent
-            and request.user.has_active_subscription
+            user.is_authenticated
+            and (user.is_parent or user.is_etudiant)
+            and user.has_active_subscription
         )
+
+
+class IsAdmin(permissions.BasePermission):
+    """Seul un admin peut accéder"""
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == "admin"
 
 
 # ──────────────────────────────────────────────
@@ -44,21 +56,21 @@ class BookingCreateView(generics.CreateAPIView):
     """
 
     serializer_class = BookingCreateSerializer
-    permission_classes = [IsParentWithSubscription]
+    permission_classes = [IsParentOrEtudiantWithSubscription]
 
 
 class BookingListView(generics.ListAPIView):
     """
     GET /api/v1/bookings/
 
-    Mes réservations (parent ou professeur).
+    Mes réservations (parent, étudiant ou professeur).
     """
 
     serializer_class = BookingSerializer
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_parent:
+        if user.is_parent or user.is_etudiant:
             return Booking.objects.filter(parent=user).select_related(
                 "teacher__user", "subject"
             )
@@ -76,12 +88,11 @@ class BookingDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return Booking.objects.filter(
-            models__in=[
-                Booking.objects.filter(parent=user),
-                Booking.objects.filter(teacher__user=user),
-            ]
-        )
+        if user.is_parent or user.is_etudiant:
+            return Booking.objects.filter(parent=user)
+        elif user.is_teacher:
+            return Booking.objects.filter(teacher__user=user)
+        return Booking.objects.none()
 
 
 @api_view(["POST"])
@@ -140,14 +151,14 @@ def booking_action(request, pk, action):
 
     # Vérifier qui peut faire l'action
     is_teacher = hasattr(user, "teacher_profile") and booking.teacher == user.teacher_profile
-    is_parent = booking.parent == user
+    is_booker = booking.parent == user  # parent ou étudiant
 
     if transition["who"] == "teacher" and not is_teacher:
         return Response(
             {"error": "Seul le professeur peut effectuer cette action"},
             status=status.HTTP_403_FORBIDDEN,
         )
-    if transition["who"] == "both" and not (is_teacher or is_parent):
+    if transition["who"] == "both" and not (is_teacher or is_booker):
         return Response(
             {"error": "Vous n'êtes pas autorisé"},
             status=status.HTTP_403_FORBIDDEN,
@@ -185,6 +196,30 @@ class ReviewCreateView(generics.CreateAPIView):
         teacher.total_reviews = Review.objects.filter(teacher=teacher).count()
         teacher.save(update_fields=["avg_rating", "total_reviews"])
 
+        # Alerte automatique si la moyenne tombe sous 2.5
+        if teacher.avg_rating < 2.5 and teacher.total_reviews >= 3:
+            from kalanconnect.accounts.models import User
+
+            admins = User.objects.filter(role="admin")
+            for admin in admins:
+                # Créer une notification pour chaque admin
+                try:
+                    from kalanconnect.chat.models import AppNotification
+
+                    AppNotification.objects.create(
+                        user=admin,
+                        title="Alerte qualité professeur",
+                        message=(
+                            f"{teacher.user.first_name} {teacher.user.last_name} "
+                            f"a une note moyenne de {teacher.avg_rating:.1f}/5 "
+                            f"({teacher.total_reviews} avis). Vérification recommandée."
+                        ),
+                        type="system",
+                        data={"teacher_id": teacher.id},
+                    )
+                except Exception:
+                    pass  # Ne pas bloquer si le modèle notification n'existe pas
+
 
 class ReviewListView(generics.ListAPIView):
     """GET /api/v1/bookings/reviews/<teacher_id>/ — Avis d'un professeur"""
@@ -195,3 +230,66 @@ class ReviewListView(generics.ListAPIView):
     def get_queryset(self):
         teacher_id = self.kwargs["teacher_id"]
         return Review.objects.filter(teacher_id=teacher_id).select_related("parent")
+
+
+# ──────────────────────────────────────────────
+# Packs de cours
+# ──────────────────────────────────────────────
+
+
+class BookingPackCreateView(generics.CreateAPIView):
+    """POST /api/v1/bookings/packs/ — Créer un pack de cours"""
+
+    serializer_class = BookingPackCreateSerializer
+    permission_classes = [IsParentOrEtudiantWithSubscription]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class BookingPackListView(generics.ListAPIView):
+    """GET /api/v1/bookings/packs/ — Mes packs actifs"""
+
+    serializer_class = BookingPackSerializer
+
+    def get_queryset(self):
+        return BookingPack.objects.filter(
+            buyer=self.request.user,
+            status="active",
+        ).select_related("teacher__user", "subject")
+
+
+# ──────────────────────────────────────────────
+# Signalements
+# ──────────────────────────────────────────────
+
+
+class ReportCreateView(generics.CreateAPIView):
+    """POST /api/v1/bookings/reports/ — Signaler un utilisateur"""
+
+    serializer_class = ReportSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(reporter=self.request.user)
+
+
+class ReportAdminListView(generics.ListAPIView):
+    """GET /api/v1/admin/reports/ — Liste des signalements (admin)"""
+
+    serializer_class = ReportAdminSerializer
+    permission_classes = [IsAdmin]
+
+    def get_queryset(self):
+        qs = Report.objects.all().select_related("reporter", "reported_user")
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
+
+
+class ReportAdminUpdateView(generics.UpdateAPIView):
+    """PATCH /api/v1/admin/reports/<id>/ — Traiter un signalement (admin)"""
+
+    serializer_class = ReportAdminSerializer
+    permission_classes = [IsAdmin]
+    queryset = Report.objects.all()

@@ -41,6 +41,9 @@ import StudentDashboardScreen from "@/screens/student/StudentDashboardScreen";
 import MyScheduleScreen from "@/screens/student/MyScheduleScreen";
 import ProgressScreen from "@/screens/student/ProgressScreen";
 
+// ── Etudiant-specific screens ──
+import EtudiantDashboardScreen from "@/screens/etudiant/EtudiantDashboardScreen";
+
 // ── Parent-specific screens ──
 import ChildrenScreen from "@/screens/parent/ChildrenScreen";
 import ChildProgressScreen from "@/screens/parent/ChildProgressScreen";
@@ -49,6 +52,7 @@ import ChildProgressScreen from "@/screens/parent/ChildProgressScreen";
 import AdminDashboardScreen from "@/screens/admin/AdminDashboardScreen";
 import UserManagementScreen from "@/screens/admin/UserManagementScreen";
 import TeacherVerificationScreen from "@/screens/admin/TeacherVerificationScreen";
+import ReportsScreen from "@/screens/admin/ReportsScreen";
 
 import type { RootStackParamList } from "@/types";
 
@@ -83,6 +87,7 @@ function getTabIcon(name: string, focused: boolean): keyof typeof Ionicons.glyph
     "Emploi du temps": ["calendar", "calendar-outline"],
     Progression: ["bar-chart", "bar-chart-outline"],
     Enfants: ["people", "people-outline"],
+    Signalements: ["flag", "flag-outline"],
   };
   const pair = icons[name] || ["ellipse", "ellipse-outline"];
   return focused ? pair[0] : pair[1];
@@ -152,6 +157,26 @@ function StudentTabNavigator() {
   );
 }
 
+// ── Etudiant Tabs ──
+function EtudiantTabNavigator() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        ...tabScreenOptions({ route }),
+        tabBarIcon: ({ focused, color, size }) => (
+          <Ionicons name={getTabIcon(route.name, focused)} size={size} color={color} />
+        ),
+      })}
+    >
+      <Tab.Screen name="Accueil" component={EtudiantDashboardScreen} />
+      <Tab.Screen name="Recherche" component={SearchScreen} />
+      <Tab.Screen name="Cours" component={BookingsScreen} />
+      <Tab.Screen name="Chat" component={ChatListScreen} />
+      <Tab.Screen name="Profil" component={ProfileScreen} />
+    </Tab.Navigator>
+  );
+}
+
 // ── Admin Tabs ──
 function AdminTabNavigator() {
   return (
@@ -166,7 +191,7 @@ function AdminTabNavigator() {
       <Tab.Screen name="Tableau de bord" component={AdminDashboardScreen} />
       <Tab.Screen name="Utilisateurs" component={UserManagementScreen} />
       <Tab.Screen name="Vérifications" component={TeacherVerificationScreen} />
-      <Tab.Screen name="Chat" component={ChatListScreen} />
+      <Tab.Screen name="Signalements" component={ReportsScreen} />
       <Tab.Screen name="Profil" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -177,11 +202,12 @@ function AdminTabNavigator() {
 // ══════════════════════════════════════════
 
 function MainTabNavigator() {
-  const { isTeacher, isAdmin, isStudent } = useAuth();
+  const { isTeacher, isAdmin, isStudent, isEtudiant } = useAuth();
 
   if (isAdmin) return <AdminTabNavigator />;
   if (isTeacher) return <TeacherTabNavigator />;
   if (isStudent) return <StudentTabNavigator />;
+  if (isEtudiant) return <EtudiantTabNavigator />;
   return <ParentTabNavigator />; // Default for parent + guest
 }
 
@@ -243,6 +269,13 @@ export default function RootNavigator() {
         {/* Teacher-specific */}
         <Stack.Screen name="EditTeacherProfile" component={EditTeacherProfileScreen} options={{ title: "Profil professeur" }} />
         <Stack.Screen name="ManageAvailability" component={ManageAvailabilityScreen} options={{ title: "Disponibilités" }} />
+
+        {/* Student-specific */}
+        <Stack.Screen name="Progression" component={ProgressScreen} options={{ title: "Ma progression" }} />
+
+        {/* Admin-specific */}
+        <Stack.Screen name="AdminBookings" component={BookingsScreen} options={{ title: "Réservations" }} />
+        <Stack.Screen name="Reports" component={ReportsScreen} options={{ title: "Signalements" }} />
 
         {/* Parent-specific */}
         <Stack.Screen name="ChildProgress" component={ChildProgressScreen} options={({ route }) => ({ title: `Progression de ${(route.params as { childName?: string })?.childName || ""}` })} />

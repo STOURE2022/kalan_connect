@@ -16,4 +16,9 @@ urlpatterns = [
         views.ReviewListView.as_view(),
         name="review-list",
     ),
+    # Packs de cours
+    path("packs/", views.BookingPackListView.as_view(), name="pack-list"),
+    path("packs/create/", views.BookingPackCreateView.as_view(), name="pack-create"),
+    # Signalements
+    path("reports/", views.ReportCreateView.as_view(), name="report-create"),
 ]

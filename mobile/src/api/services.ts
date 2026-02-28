@@ -9,11 +9,13 @@ import type {
   AppNotification,
   AuthTokens,
   Booking,
+  BookingPack,
   Child,
   Conversation,
   Level,
   Message,
   PaginatedResponse,
+  Report,
   Review,
   ScheduleItem,
   SearchFilters,
@@ -26,6 +28,12 @@ import type {
   User,
 } from "@/types";
 
+// ── DELETE ACCOUNT ──
+export const deleteAccount = async (): Promise<void> => {
+  await apiFetch("/auth/account/", { method: "DELETE" });
+  await clearTokens();
+};
+
 // ── AUTH ──
 
 export const authAPI = {
@@ -34,7 +42,7 @@ export const authAPI = {
     first_name: string;
     last_name: string;
     email?: string;
-    role: "parent" | "teacher" | "student";
+    role: "parent" | "teacher" | "student" | "etudiant";
     city: string;
     neighborhood?: string;
     password: string;
@@ -192,6 +200,23 @@ export const bookingsAPI = {
       body: JSON.stringify(data),
     });
   },
+
+  // ── Packs de cours ──
+
+  async getMyPacks() {
+    return apiFetch<PaginatedResponse<BookingPack>>("/bookings/packs/");
+  },
+
+  async createPack(data: {
+    pack_type: "single" | "pack_4" | "pack_8" | "monthly";
+    teacher: number;
+    subject: number;
+  }) {
+    return apiFetch<BookingPack>("/bookings/packs/create/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 // ── CHAT ──
@@ -315,6 +340,34 @@ export const childrenAPI = {
   },
 };
 
+// ── REPORTS ──
+
+export const reportsAPI = {
+  async create(data: {
+    reported_user: number;
+    booking: number | null;
+    reason: string;
+    description: string;
+  }) {
+    return apiFetch<Report>("/bookings/reports/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+};
+
+// ── ETUDIANT ──
+
+export const etudiantAPI = {
+  async getMyBookings() {
+    return bookingsAPI.list();
+  },
+
+  async getMyPacks() {
+    return bookingsAPI.getMyPacks();
+  },
+};
+
 // ── ADMIN ──
 
 export const adminAPI = {
@@ -374,6 +427,20 @@ export const adminAPI = {
       total_revenue: number;
       monthly_revenue: { month: string; amount: number }[];
     }>("/admin/revenue/");
+  },
+
+  // ── Signalements ──
+
+  async getReports(statusFilter?: string) {
+    const params = statusFilter ? `?status=${statusFilter}` : "";
+    return apiFetch<PaginatedResponse<Report>>(`/admin/reports/${params}`);
+  },
+
+  async updateReport(id: number, data: { status?: string; admin_notes?: string }) {
+    return apiFetch<Report>(`/admin/reports/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
   },
 };
 

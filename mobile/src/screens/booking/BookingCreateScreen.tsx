@@ -9,24 +9,38 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { teachersAPI, bookingsAPI } from "@/api/services";
 import Avatar from "@/components/ui/Avatar";
 import Button from "@/components/ui/Button";
-import { colors, spacing, radius, fontSize } from "@/utils/theme";
+import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
 import { formatPrice } from "@/utils/helpers";
 import Toast from "react-native-toast-message";
-import type { TeacherProfile } from "@/types";
+import type { TeacherProfile, BookingPack } from "@/types";
+
+const PACK_OPTIONS = [
+  { key: "single", label: "Cours unique", sessions: 1, discount: 0 },
+  { key: "pack_4", label: "Pack 4 cours", sessions: 4, discount: 10 },
+  { key: "pack_8", label: "Pack 8 cours", sessions: 8, discount: 15 },
+  { key: "monthly", label: "Mensuel (12)", sessions: 12, discount: 20 },
+] as const;
 
 export default function BookingCreateScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const insets = useSafeAreaInsets();
   const teacherId = route.params.teacherId;
 
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Pack / formule selection
+  const [selectedFormula, setSelectedFormula] = useState<string>("single");
+  const [existingPacks, setExistingPacks] = useState<BookingPack[]>([]);
+  const [useExistingPack, setUseExistingPack] = useState<number | null>(null);
 
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
@@ -35,9 +49,17 @@ export default function BookingCreateScreen() {
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    teachersAPI.getById(teacherId).then((t) => {
+    Promise.all([
+      teachersAPI.getById(teacherId),
+      bookingsAPI.getMyPacks().catch(() => ({ results: [] })),
+    ]).then(([t, packs]) => {
       setTeacher(t);
       if (t.teacher_subjects.length > 0) setSelectedSubject(t.teacher_subjects[0].subject.id);
+      // Filter packs for this teacher
+      const activePacks = packs.results.filter(
+        (p: BookingPack) => p.teacher === t.id && p.status === "active" && p.remaining_sessions > 0
+      );
+      setExistingPacks(activePacks);
     }).finally(() => setLoading(false));
   }, [teacherId]);
 
@@ -71,6 +93,13 @@ export default function BookingCreateScreen() {
   const selectedDayOfWeek = selectedDate ? (new Date(selectedDate).getDay() || 7) : null;
   const availableSlots = teacher.availabilities.filter((a) => a.day_of_week === selectedDayOfWeek);
 
+  const selectedPack = PACK_OPTIONS.find((p) => p.key === selectedFormula);
+  const unitPrice = teacher.hourly_rate;
+  const discountedPrice = selectedPack
+    ? Math.round(unitPrice * (100 - selectedPack.discount) / 100)
+    : unitPrice;
+  const totalPrice = selectedPack ? discountedPrice * selectedPack.sessions : unitPrice;
+
   const handleSubmit = async () => {
     if (!selectedSubject || !selectedDate || !selectedSlot) {
       Toast.show({ type: "error", text1: "Remplissez tous les champs" });
@@ -78,6 +107,16 @@ export default function BookingCreateScreen() {
     }
     setSubmitting(true);
     try {
+      // If it's a pack (not single and not using existing), create the pack first
+      if (selectedFormula !== "single" && !useExistingPack) {
+        await bookingsAPI.createPack({
+          pack_type: selectedFormula as any,
+          teacher: teacher.id,
+          subject: selectedSubject,
+        });
+      }
+
+      // Create the booking
       await bookingsAPI.create({
         teacher: teacher.id,
         subject: selectedSubject,
@@ -105,6 +144,71 @@ export default function BookingCreateScreen() {
           <Text style={styles.teacherRate}>{formatPrice(teacher.hourly_rate)}/h</Text>
         </View>
       </View>
+
+      {/* Formula / Pack selection */}
+      <Text style={styles.sectionLabel}>Formule</Text>
+      {existingPacks.length > 0 && (
+        <TouchableOpacity
+          style={[
+            styles.packExisting,
+            useExistingPack !== null && styles.packExistingActive,
+          ]}
+          onPress={() => {
+            if (useExistingPack !== null) {
+              setUseExistingPack(null);
+            } else {
+              setUseExistingPack(existingPacks[0].id);
+              setSelectedFormula("single");
+            }
+          }}
+        >
+          <Ionicons
+            name="gift-outline"
+            size={18}
+            color={useExistingPack !== null ? colors.primary[600] : colors.gray[500]}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.packExistingText, useExistingPack !== null && { color: colors.primary[700] }]}>
+              Utiliser mon pack existant
+            </Text>
+            <Text style={styles.packExistingDetail}>
+              {existingPacks[0].remaining_sessions} séance(s) restante(s) — {existingPacks[0].subject_name}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      )}
+      {useExistingPack === null && (
+        <View style={styles.formulaGrid}>
+          {PACK_OPTIONS.map((pack) => {
+            const isActive = selectedFormula === pack.key;
+            const packPrice = Math.round(unitPrice * (100 - pack.discount) / 100);
+            return (
+              <TouchableOpacity
+                key={pack.key}
+                style={[styles.formulaCard, isActive && styles.formulaCardActive]}
+                onPress={() => setSelectedFormula(pack.key)}
+              >
+                <Text style={[styles.formulaLabel, isActive && styles.formulaLabelActive]}>
+                  {pack.label}
+                </Text>
+                <Text style={[styles.formulaPrice, isActive && styles.formulaPriceActive]}>
+                  {formatPrice(packPrice)}/h
+                </Text>
+                {pack.discount > 0 && (
+                  <View style={styles.discountBadge}>
+                    <Text style={styles.discountText}>-{pack.discount}%</Text>
+                  </View>
+                )}
+                {pack.sessions > 1 && (
+                  <Text style={[styles.formulaTotal, isActive && { color: colors.primary[600] }]}>
+                    Total: {formatPrice(packPrice * pack.sessions)}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       {/* Subject */}
       <Text style={styles.sectionLabel}>Matière</Text>
@@ -204,7 +308,7 @@ export default function BookingCreateScreen() {
         disabled={!selectedSubject || !selectedDate || !selectedSlot}
         size="lg"
         icon={<Ionicons name="calendar" size={18} color={colors.white} />}
-        style={{ marginTop: spacing.xl, marginBottom: 100 }}
+        style={{ marginTop: spacing.xl, marginBottom: insets.bottom + 40 }}
       />
     </ScrollView>
   );
@@ -220,6 +324,55 @@ const styles = StyleSheet.create({
   teacherName: { fontSize: 15, fontWeight: "700", color: colors.gray[900] },
   teacherRate: { fontSize: 13, color: colors.gray[500] },
   sectionLabel: { fontSize: 13, fontWeight: "700", color: colors.gray[700], marginTop: spacing.xl, marginBottom: spacing.sm },
+  // Formula / Pack
+  formulaGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  formulaCard: {
+    width: "48%",
+    flexGrow: 1,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    alignItems: "center",
+  },
+  formulaCardActive: {
+    borderColor: colors.primary[500],
+    backgroundColor: colors.primary[50],
+  },
+  formulaLabel: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.gray[700] },
+  formulaLabelActive: { color: colors.primary[700] },
+  formulaPrice: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.gray[900], marginTop: 2 },
+  formulaPriceActive: { color: colors.primary[700] },
+  formulaTotal: { fontSize: fontSize.xs, color: colors.gray[500], marginTop: 2 },
+  discountBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    backgroundColor: colors.red[500],
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radius.sm,
+  },
+  discountText: { fontSize: 10, fontWeight: fontWeight.bold, color: colors.white },
+  packExisting: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    marginBottom: spacing.sm,
+  },
+  packExistingActive: {
+    borderColor: colors.primary[500],
+    backgroundColor: colors.primary[50],
+  },
+  packExistingText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.gray[700] },
+  packExistingDetail: { fontSize: fontSize.xs, color: colors.gray[500], marginTop: 1 },
+  // Chips
   chipScroll: { flexDirection: "row" },
   chip: { borderWidth: 1, borderColor: colors.gray[200], borderRadius: radius.lg, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, backgroundColor: colors.white },
   chipActive: { borderColor: colors.primary[500], backgroundColor: colors.primary[50] },

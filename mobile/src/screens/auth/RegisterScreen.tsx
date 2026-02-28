@@ -20,7 +20,7 @@ export default function RegisterScreen() {
   const navigation = useNavigation<any>();
   const { register } = useAuth();
 
-  const [role, setRole] = useState<"parent" | "teacher" | "student">("parent");
+  const [role, setRole] = useState<"parent" | "teacher" | "student" | "etudiant">("parent");
   const [form, setForm] = useState({
     phone: "",
     first_name: "",
@@ -73,6 +73,7 @@ export default function RegisterScreen() {
           { key: "parent" as const, label: "Parent" },
           { key: "teacher" as const, label: "Professeur" },
           { key: "student" as const, label: "Élève" },
+          { key: "etudiant" as const, label: "Étudiant" },
         ]).map((r) => (
           <TouchableOpacity
             key={r.key}

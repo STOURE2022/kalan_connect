@@ -15,7 +15,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
 SECRET_KEY = env("SECRET_KEY", default="change-me-in-production")
 DEBUG = env("DEBUG")
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
+ALLOWED_HOSTS = ["*"] if DEBUG else env.list("ALLOWED_HOSTS", default=[])
 
 # ──────────────────────────────────────────────
 # Applications
@@ -83,16 +83,24 @@ WSGI_APPLICATION = "config.wsgi.application"
 # ──────────────────────────────────────────────
 # Base de données — PostgreSQL + PostGIS
 # ──────────────────────────────────────────────
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": env("DB_NAME", default="kalanconnect"),
-        "USER": env("DB_USER", default="postgres"),
-        "PASSWORD": env("DB_PASSWORD", default="postgres"),
-        "HOST": env("DB_HOST", default="localhost"),
-        "PORT": env("DB_PORT", default="5432"),
+if env("DB_ENGINE", default="sqlite") == "postgresql":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": env("DB_NAME", default="kalanconnect"),
+            "USER": env("DB_USER", default="postgres"),
+            "PASSWORD": env("DB_PASSWORD", default="postgres"),
+            "HOST": env("DB_HOST", default="localhost"),
+            "PORT": env("DB_PORT", default="5432"),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # ──────────────────────────────────────────────
 # Auth
@@ -210,6 +218,16 @@ ORANGE_MONEY_NOTIF_URL = env("ORANGE_MONEY_NOTIF_URL", default="")
 # ──────────────────────────────────────────────
 # Plans d'abonnement
 # ──────────────────────────────────────────────
+# ──────────────────────────────────────────────
+# Packs de cours (formules)
+# ──────────────────────────────────────────────
+BOOKING_PACKS = {
+    "single": {"sessions": 1, "discount": 0},
+    "pack_4": {"sessions": 4, "discount": 10},    # -10%
+    "pack_8": {"sessions": 8, "discount": 15},    # -15%
+    "monthly": {"sessions": 12, "discount": 20},  # -20%
+}
+
 SUBSCRIPTION_PLANS = {
     "monthly": {
         "name": "Mensuel",
