@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { teachersAPI, bookingsAPI } from "@/api/services";
 import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
 import { formatPrice, formatDate, formatTime } from "@/utils/helpers";
+import Toast from "react-native-toast-message";
 import Badge from "@/components/ui/Badge";
 import type { TeacherStats, Booking } from "@/types";
 
@@ -41,6 +42,7 @@ export default function TeacherDashboardScreen() {
           .slice(0, 5)
       );
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }

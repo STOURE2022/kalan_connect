@@ -9,6 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
@@ -34,6 +35,7 @@ const ROLE_COLORS: Record<string, "green" | "blue" | "yellow" | "gray"> = {
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { user, isLoggedIn, isParent, isTeacher, isAdmin, isStudent, hasSubscription, logout } = useAuth();
 
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -196,7 +198,7 @@ export default function ProfileScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerBg} />
+        <View style={[styles.headerBg, { height: insets.top + 60 }]} />
         <View style={styles.profileSection}>
           <Avatar
             src={user?.avatar || null}

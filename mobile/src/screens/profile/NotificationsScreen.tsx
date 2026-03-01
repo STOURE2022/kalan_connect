@@ -9,8 +9,10 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { notificationsAPI } from "@/api/services";
+import Toast from "react-native-toast-message";
 import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
 import { formatRelativeTime } from "@/utils/helpers";
 import type { AppNotification } from "@/types";
@@ -33,6 +35,7 @@ const COLOR_MAP: Record<string, string> = {
 
 export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,6 +45,7 @@ export default function NotificationsScreen() {
       const res = await notificationsAPI.list();
       setNotifications(res.results);
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }
@@ -106,6 +110,7 @@ export default function NotificationsScreen() {
         data={notifications}
         keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={[styles.item, !item.is_read && styles.unread]}

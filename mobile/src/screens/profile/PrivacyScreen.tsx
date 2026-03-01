@@ -1,15 +1,44 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, ScrollView, Switch, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as SecureStore from "expo-secure-store";
 import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
 
+const PRIVACY_KEY = "kalanconnect_privacy_settings";
+
 export default function PrivacyScreen() {
+  const insets = useSafeAreaInsets();
   const [profileVisible, setProfileVisible] = useState(true);
   const [showPhone, setShowPhone] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(true);
+
+  // Load saved settings
+  useEffect(() => {
+    SecureStore.getItemAsync(PRIVACY_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw);
+        if (saved.profileVisible !== undefined) setProfileVisible(saved.profileVisible);
+        if (saved.showPhone !== undefined) setShowPhone(saved.showPhone);
+        if (saved.showEmail !== undefined) setShowEmail(saved.showEmail);
+        if (saved.pushNotifications !== undefined) setPushNotifications(saved.pushNotifications);
+        if (saved.emailNotifications !== undefined) setEmailNotifications(saved.emailNotifications);
+        if (saved.smsNotifications !== undefined) setSmsNotifications(saved.smsNotifications);
+      } catch {}
+    });
+  }, []);
+
+  // Persist on every change
+  useEffect(() => {
+    SecureStore.setItemAsync(
+      PRIVACY_KEY,
+      JSON.stringify({ profileVisible, showPhone, showEmail, pushNotifications, emailNotifications, smsNotifications })
+    );
+  }, [profileVisible, showPhone, showEmail, pushNotifications, emailNotifications, smsNotifications]);
 
   const sections = [
     {
@@ -67,7 +96,7 @@ export default function PrivacyScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
       {/* Data info */}
       <View style={styles.infoCard}>
         <Ionicons name="shield-checkmark" size={24} color={colors.primary[600]} />

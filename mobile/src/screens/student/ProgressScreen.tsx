@@ -8,7 +8,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import Toast from "react-native-toast-message";
 import StarRating from "@/components/ui/StarRating";
 import { studentAPI } from "@/api/services";
 import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
@@ -16,6 +18,7 @@ import { formatDate } from "@/utils/helpers";
 import type { StudentProgress } from "@/types";
 
 export default function ProgressScreen() {
+  const insets = useSafeAreaInsets();
   const [progress, setProgress] = useState<StudentProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -25,6 +28,7 @@ export default function ProgressScreen() {
       const data = await studentAPI.getMyProgress();
       setProgress(data);
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }
@@ -62,7 +66,7 @@ export default function ProgressScreen() {
     <ScrollView
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      contentContainerStyle={{ paddingBottom: 40 }}
+      contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
     >
       {/* Summary cards */}
       <View style={styles.summaryRow}>

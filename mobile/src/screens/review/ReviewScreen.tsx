@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import StarRating from "@/components/ui/StarRating";
 import Button from "@/components/ui/Button";
 import { bookingsAPI } from "@/api/services";
@@ -16,6 +17,7 @@ import Toast from "react-native-toast-message";
 export default function ReviewScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>();
+  const insets = useSafeAreaInsets();
   const { teacherId, bookingId } = route.params;
 
   const [rating, setRating] = useState(0);
@@ -67,7 +69,7 @@ export default function ReviewScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Évaluer le cours</Text>
         <Text style={styles.headerSubtitle}>

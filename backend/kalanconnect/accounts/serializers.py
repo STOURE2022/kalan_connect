@@ -5,6 +5,8 @@ KalanConnect — Serializers Auth & User
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from .models import Child
+
 User = get_user_model()
 
 
@@ -74,3 +76,44 @@ class UserMinimalSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "first_name", "last_name", "avatar", "role"]
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    has_active_subscription = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id", "phone", "first_name", "last_name", "email", "role",
+            "is_phone_verified", "is_active", "has_active_subscription", "created_at",
+        ]
+
+
+class ChildSerializer(serializers.ModelSerializer):
+    level = serializers.SerializerMethodField()
+    level_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+
+    class Meta:
+        model = Child
+        fields = ["id", "first_name", "last_name", "date_of_birth", "level", "level_id", "school", "avatar", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+    def get_level(self, obj):
+        if obj.level:
+            from kalanconnect.teachers.serializers import LevelSerializer
+            return LevelSerializer(obj.level).data
+        return None
+
+    def create(self, validated_data):
+        level_id = validated_data.pop("level_id", None)
+        child = Child.objects.create(**validated_data)
+        if level_id:
+            child.level_id = level_id
+            child.save(update_fields=["level"])
+        return child
+
+    def update(self, instance, validated_data):
+        level_id = validated_data.pop("level_id", None)
+        if level_id is not None:
+            instance.level_id = level_id
+        return super().update(instance, validated_data)

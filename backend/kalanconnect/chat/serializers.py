@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 from kalanconnect.accounts.serializers import UserMinimalSerializer
 
-from .models import Conversation, Message
+from .models import AppNotification, Conversation, Message
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -61,3 +61,10 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_unread_count(self, obj):
         user = self.context["request"].user
         return obj.messages.filter(is_read=False).exclude(sender=user).count()
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppNotification
+        fields = ["id", "title", "message", "type", "is_read", "data", "created_at"]
+        read_only_fields = ["id", "title", "message", "type", "data", "created_at"]

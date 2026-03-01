@@ -3,13 +3,13 @@ import {
   View,
   Text,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -25,6 +25,8 @@ export default function EditTeacherProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+
   const [bio, setBio] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
   const [city, setCity] = useState("");
@@ -34,6 +36,23 @@ export default function EditTeacherProfileScreen() {
   const [teachesOnline, setTeachesOnline] = useState(false);
   const [teachesAtHome, setTeachesAtHome] = useState(false);
   const [teachesAtStudent, setTeachesAtStudent] = useState(false);
+
+  const handlePickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Toast.show({ type: "error", text1: "Permission requise pour accéder à la galerie" });
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -49,6 +68,7 @@ export default function EditTeacherProfileScreen() {
       setTeachesAtHome(data.teaches_at_home);
       setTeachesAtStudent(data.teaches_at_student);
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }
@@ -73,6 +93,10 @@ export default function EditTeacherProfileScreen() {
       formData.append("teaches_online", String(teachesOnline));
       formData.append("teaches_at_home", String(teachesAtHome));
       formData.append("teaches_at_student", String(teachesAtStudent));
+      if (photoUri) {
+        const filename = photoUri.split("/").pop() || "photo.jpg";
+        formData.append("photo", { uri: photoUri, name: filename, type: "image/jpeg" } as any);
+      }
 
       await teachersAPI.updateMyProfile(formData);
       Toast.show({ type: "success", text1: "Profil mis à jour" });
@@ -97,12 +121,12 @@ export default function EditTeacherProfileScreen() {
       {/* Photo */}
       <View style={styles.photoSection}>
         <Avatar
-          src={profile?.photo || null}
+          src={photoUri || profile?.photo || null}
           firstName={profile?.user.first_name || ""}
           lastName={profile?.user.last_name || ""}
           size={90}
         />
-        <TouchableOpacity style={styles.changePhotoBtn}>
+        <TouchableOpacity style={styles.changePhotoBtn} onPress={handlePickPhoto}>
           <Ionicons name="camera" size={16} color={colors.primary[600]} />
           <Text style={styles.changePhotoText}>Changer la photo</Text>
         </TouchableOpacity>
@@ -111,16 +135,15 @@ export default function EditTeacherProfileScreen() {
       {/* Bio */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Présentation</Text>
-        <TextInput
-          style={styles.bioInput}
+        <Input
+          label=""
           value={bio}
           onChangeText={setBio}
           placeholder="Décrivez votre parcours, votre approche pédagogique..."
-          placeholderTextColor={colors.gray[400]}
           multiline
           numberOfLines={5}
           maxLength={1000}
-          textAlignVertical="top"
+          style={{ minHeight: 120, textAlignVertical: "top" }}
         />
         <Text style={styles.charCount}>{bio.length}/1000</Text>
       </View>

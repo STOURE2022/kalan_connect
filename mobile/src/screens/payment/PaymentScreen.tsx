@@ -9,6 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -49,6 +50,7 @@ const PLANS = [
 export default function PaymentScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const insets = useSafeAreaInsets();
   const { refreshUser } = useAuth();
 
   const [step, setStep] = useState<Step>("plan");
@@ -294,7 +296,7 @@ export default function PaymentScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
-  content: { padding: spacing.xl },
+  content: { padding: spacing.xl, paddingBottom: 40 },
   center: { alignItems: "center", justifyContent: "center", paddingHorizontal: spacing["2xl"] },
 
   title: {

@@ -97,3 +97,31 @@ class User(AbstractUser):
         if self.role in (self.Role.PARENT, self.Role.ETUDIANT):
             return self.subscriptions.filter(status="active").exists()
         return False
+
+
+class Child(models.Model):
+    """Enfant géré par un parent"""
+    parent = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="children",
+    )
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    date_of_birth = models.DateField(null=True, blank=True)
+    level = models.ForeignKey(
+        "teachers.Level",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    school = models.CharField(max_length=200, blank=True)
+    avatar = models.ImageField(upload_to="children/", blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "children"
+        ordering = ["first_name"]
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} (enfant de {self.parent})"

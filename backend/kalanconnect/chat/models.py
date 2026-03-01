@@ -71,3 +71,37 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.sender}: {self.content[:50]}"
+
+
+class AppNotification(models.Model):
+    """Notification in-app"""
+
+    class NotificationType(models.TextChoices):
+        BOOKING = "booking", "Réservation"
+        CHAT = "chat", "Message"
+        PAYMENT = "payment", "Paiement"
+        SYSTEM = "system", "Système"
+        REVIEW = "review", "Avis"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    type = models.CharField(
+        max_length=10,
+        choices=NotificationType.choices,
+        default=NotificationType.SYSTEM,
+    )
+    is_read = models.BooleanField(default=False)
+    data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "notifications"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user}: {self.title}"

@@ -18,6 +18,7 @@ import StarRating from "@/components/ui/StarRating";
 import { adminAPI } from "@/api/services";
 import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
 import { formatDate, formatPrice } from "@/utils/helpers";
+import Toast from "react-native-toast-message";
 import type { TeacherProfile } from "@/types";
 
 export default function TeacherVerificationScreen() {
@@ -30,6 +31,7 @@ export default function TeacherVerificationScreen() {
       const res = await adminAPI.getPendingTeachers();
       setTeachers(res.results);
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }
@@ -60,7 +62,9 @@ export default function TeacherVerificationScreen() {
             try {
               await adminAPI.verifyTeacher(teacher.id, approved);
               setTeachers((prev) => prev.filter((t) => t.id !== teacher.id));
-            } catch {}
+            } catch {
+              Toast.show({ type: "error", text1: "Erreur lors de la vérification" });
+            }
           },
         },
       ]

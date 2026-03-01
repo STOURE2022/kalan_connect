@@ -39,6 +39,7 @@ export default function ManageAvailabilityScreen() {
       const profile = await teachersAPI.getMyProfile();
       setAvailabilities(profile.availabilities);
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }

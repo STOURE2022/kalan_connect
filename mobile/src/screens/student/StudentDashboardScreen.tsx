@@ -16,6 +16,7 @@ import { studentAPI, bookingsAPI } from "@/api/services";
 import Badge from "@/components/ui/Badge";
 import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
 import { formatTime } from "@/utils/helpers";
+import Toast from "react-native-toast-message";
 import type { ScheduleItem, StudentProgress } from "@/types";
 
 export default function StudentDashboardScreen() {
@@ -36,6 +37,7 @@ export default function StudentDashboardScreen() {
       setSchedule(schedData);
       setProgress(progressData);
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }

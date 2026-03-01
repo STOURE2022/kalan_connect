@@ -10,17 +10,18 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import Avatar from "@/components/ui/Avatar";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@/contexts/AuthContext";
-import { authAPI } from "@/api/services";
+import { authAPI, deleteAccount } from "@/api/services";
 import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
 import Toast from "react-native-toast-message";
 
 export default function EditProfileScreen() {
   const navigation = useNavigation();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
 
   const [firstName, setFirstName] = useState(user?.first_name || "");
   const [lastName, setLastName] = useState(user?.last_name || "");
@@ -29,9 +30,28 @@ export default function EditProfileScreen() {
   const [neighborhood, setNeighborhood] = useState(user?.neighborhood || "");
   const [saving, setSaving] = useState(false);
 
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+
+  const handlePickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Toast.show({ type: "error", text1: "Permission requise pour accéder à la galerie" });
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setAvatarUri(result.assets[0].uri);
+    }
+  };
 
   const handleSave = async () => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -47,6 +67,10 @@ export default function EditProfileScreen() {
       if (email.trim()) formData.append("email", email.trim());
       formData.append("city", city.trim());
       formData.append("neighborhood", neighborhood.trim());
+      if (avatarUri) {
+        const filename = avatarUri.split("/").pop() || "avatar.jpg";
+        formData.append("avatar", { uri: avatarUri, name: filename, type: "image/jpeg" } as any);
+      }
 
       await authAPI.updateProfile(formData);
       await refreshUser();
@@ -89,12 +113,12 @@ export default function EditProfileScreen() {
       {/* Avatar section */}
       <View style={styles.avatarSection}>
         <Avatar
-          src={user.avatar}
+          src={avatarUri || user.avatar}
           firstName={user.first_name}
           lastName={user.last_name}
           size={90}
         />
-        <TouchableOpacity style={styles.changePhotoBtn}>
+        <TouchableOpacity style={styles.changePhotoBtn} onPress={handlePickPhoto}>
           <Ionicons name="camera" size={16} color={colors.primary[600]} />
           <Text style={styles.changePhotoText}>Changer la photo</Text>
         </TouchableOpacity>
@@ -193,7 +217,18 @@ export default function EditProfileScreen() {
               "Cette action est irréversible. Toutes vos données seront supprimées.",
               [
                 { text: "Annuler", style: "cancel" },
-                { text: "Supprimer", style: "destructive", onPress: () => {} },
+                {
+                  text: "Supprimer",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await deleteAccount();
+                      await logout();
+                    } catch {
+                      Toast.show({ type: "error", text1: "Erreur lors de la suppression" });
+                    }
+                  },
+                },
               ]
             )
           }

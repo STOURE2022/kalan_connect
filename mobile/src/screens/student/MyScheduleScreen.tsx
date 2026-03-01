@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import Toast from "react-native-toast-message";
 import Badge from "@/components/ui/Badge";
 import { studentAPI } from "@/api/services";
 import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
@@ -17,6 +19,7 @@ import { formatTime, DAYS_FR } from "@/utils/helpers";
 import type { ScheduleItem } from "@/types";
 
 export default function MyScheduleScreen() {
+  const insets = useSafeAreaInsets();
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -27,6 +30,7 @@ export default function MyScheduleScreen() {
       const data = await studentAPI.getMySchedule();
       setSchedule(data);
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }
@@ -72,7 +76,7 @@ export default function MyScheduleScreen() {
   return (
     <View style={styles.container}>
       {/* Day selector */}
-      <View style={styles.daySelector}>
+      <View style={[styles.daySelector, { paddingTop: spacing.md }]}>
         {days.map((day) => (
           <TouchableOpacity
             key={day.date}

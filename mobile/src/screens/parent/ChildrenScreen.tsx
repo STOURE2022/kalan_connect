@@ -10,6 +10,9 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -43,6 +46,7 @@ export default function ChildrenScreen() {
       const res = await childrenAPI.list();
       setChildren(res.results);
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }
@@ -198,49 +202,56 @@ export default function ChildrenScreen() {
 
       {/* Add child modal */}
       <Modal visible={showModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Ajouter un enfant</Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={24} color={colors.gray[500]} />
-              </TouchableOpacity>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+              <ScrollView keyboardShouldPersistTaps="handled" bounces={false}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Ajouter un enfant</Text>
+                  <TouchableOpacity onPress={() => setShowModal(false)}>
+                    <Ionicons name="close" size={24} color={colors.gray[500]} />
+                  </TouchableOpacity>
+                </View>
+
+                <Input
+                  label="Prénom"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="Prénom de l'enfant"
+                />
+                <Input
+                  label="Nom"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Nom de l'enfant"
+                />
+                <Input
+                  label="Date de naissance (optionnel)"
+                  value={dob}
+                  onChangeText={setDob}
+                  placeholder="AAAA-MM-JJ"
+                />
+                <Input
+                  label="École (optionnel)"
+                  value={school}
+                  onChangeText={setSchool}
+                  placeholder="Nom de l'école"
+                />
+
+                <Button
+                  title="Ajouter"
+                  onPress={handleAdd}
+                  loading={submitting}
+                  size="lg"
+                  style={{ marginTop: spacing.lg }}
+                />
+              </ScrollView>
             </View>
-
-            <Input
-              label="Prénom"
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholder="Prénom de l'enfant"
-            />
-            <Input
-              label="Nom"
-              value={lastName}
-              onChangeText={setLastName}
-              placeholder="Nom de l'enfant"
-            />
-            <Input
-              label="Date de naissance (optionnel)"
-              value={dob}
-              onChangeText={setDob}
-              placeholder="AAAA-MM-JJ"
-            />
-            <Input
-              label="École (optionnel)"
-              value={school}
-              onChangeText={setSchool}
-              placeholder="Nom de l'école"
-            />
-
-            <Button
-              title="Ajouter"
-              onPress={handleAdd}
-              loading={submitting}
-              size="lg"
-              style={{ marginTop: spacing.lg }}
-            />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

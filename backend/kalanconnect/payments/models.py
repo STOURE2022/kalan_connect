@@ -93,6 +93,7 @@ class Payment(models.Model):
     idempotency_key = models.CharField(
         max_length=100,
         unique=True,
+        default=uuid.uuid4,
         help_text="Clé d'idempotence pour éviter les doubles paiements",
     )
     metadata = models.JSONField(

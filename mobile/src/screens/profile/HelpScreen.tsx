@@ -6,9 +6,17 @@ import {
   TouchableOpacity,
   StyleSheet,
   Linking,
+  LayoutAnimation,
+  UIManager,
+  Platform,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const FAQ_ITEMS = [
   {
@@ -49,10 +57,16 @@ const FAQ_ITEMS = [
 ];
 
 export default function HelpScreen() {
+  const insets = useSafeAreaInsets();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
+  const toggleFaq = (index: number) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedIndex(expandedIndex === index ? null : index);
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
       {/* Contact section */}
       <View style={styles.contactSection}>
         <Text style={styles.contactTitle}>Besoin d'aide ?</Text>
@@ -63,7 +77,7 @@ export default function HelpScreen() {
         <View style={styles.contactButtons}>
           <TouchableOpacity
             style={styles.contactBtn}
-            onPress={() => Linking.openURL("tel:+22370000000")}
+            onPress={() => Linking.openURL("tel:+22370000000").catch(() => {})}
           >
             <Ionicons name="call" size={22} color={colors.primary[600]} />
             <Text style={styles.contactBtnText}>Appeler</Text>
@@ -72,7 +86,7 @@ export default function HelpScreen() {
 
           <TouchableOpacity
             style={styles.contactBtn}
-            onPress={() => Linking.openURL("mailto:support@kalanconnect.ml")}
+            onPress={() => Linking.openURL("mailto:support@kalanconnect.ml").catch(() => {})}
           >
             <Ionicons name="mail" size={22} color={colors.primary[600]} />
             <Text style={styles.contactBtnText}>Email</Text>
@@ -81,7 +95,7 @@ export default function HelpScreen() {
 
           <TouchableOpacity
             style={styles.contactBtn}
-            onPress={() => Linking.openURL("https://wa.me/22370000000")}
+            onPress={() => Linking.openURL("https://wa.me/22370000000").catch(() => {})}
           >
             <Ionicons name="logo-whatsapp" size={22} color={colors.primary[600]} />
             <Text style={styles.contactBtnText}>WhatsApp</Text>
@@ -97,7 +111,7 @@ export default function HelpScreen() {
           <TouchableOpacity
             key={index}
             style={styles.faqItem}
-            onPress={() => setExpandedIndex(expandedIndex === index ? null : index)}
+            onPress={() => toggleFaq(index)}
             activeOpacity={0.7}
           >
             <View style={styles.faqHeader}>
@@ -125,11 +139,11 @@ export default function HelpScreen() {
             rendre l'éducation de qualité accessible à tous au Mali.
           </Text>
           <View style={styles.aboutLinks}>
-            <TouchableOpacity style={styles.aboutLink}>
+            <TouchableOpacity style={styles.aboutLink} onPress={() => Linking.openURL("https://kalanconnect.ml/terms").catch(() => {})}>
               <Ionicons name="document-text-outline" size={16} color={colors.primary[600]} />
               <Text style={styles.aboutLinkText}>Conditions d'utilisation</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.aboutLink}>
+            <TouchableOpacity style={styles.aboutLink} onPress={() => Linking.openURL("https://kalanconnect.ml/privacy").catch(() => {})}>
               <Ionicons name="shield-outline" size={16} color={colors.primary[600]} />
               <Text style={styles.aboutLinkText}>Politique de confidentialité</Text>
             </TouchableOpacity>

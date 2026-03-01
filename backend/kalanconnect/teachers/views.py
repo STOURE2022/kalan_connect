@@ -10,6 +10,7 @@ from django_filters import rest_framework as filters
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Availability, Diploma, Level, Subject, TeacherProfile
 from .serializers import (
@@ -258,3 +259,104 @@ def teacher_autocomplete(request):
             "teachers": TeacherProfileListSerializer(teachers, many=True).data,
         }
     )
+
+
+# ──────────────────────────────────────────────
+# Stats & Eleves du professeur
+# ──────────────────────────────────────────────
+
+
+class TeacherStatsView(APIView):
+    """GET /api/v1/teachers/me/stats/"""
+
+    def get(self, request):
+        from kalanconnect.bookings.models import Booking
+        from kalanconnect.payments.models import Payment
+        from django.db.models import Sum
+        from django.utils import timezone
+
+        try:
+            profile = TeacherProfile.objects.get(user=request.user)
+        except TeacherProfile.DoesNotExist:
+            return Response({"error": "Profil introuvable"}, status=status.HTTP_404_NOT_FOUND)
+
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        all_bookings = Booking.objects.filter(teacher=profile)
+        completed = all_bookings.filter(status="completed")
+
+        total_earnings = completed.aggregate(Sum("price"))["price__sum"] or 0
+        month_bookings = all_bookings.filter(created_at__gte=month_start)
+        month_earnings = completed.filter(date__gte=month_start.date()).aggregate(Sum("price"))["price__sum"] or 0
+
+        student_ids = all_bookings.values_list("parent_id", flat=True).distinct()
+
+        return Response({
+            "total_students": student_ids.count(),
+            "total_bookings": all_bookings.count(),
+            "completed_sessions": completed.count(),
+            "total_earnings": total_earnings,
+            "avg_rating": profile.avg_rating,
+            "total_reviews": profile.total_reviews,
+            "this_month_earnings": month_earnings,
+            "this_month_bookings": month_bookings.count(),
+        })
+
+
+class TeacherStudentsView(APIView):
+    """GET /api/v1/teachers/me/students/"""
+
+    def get(self, request):
+        from kalanconnect.bookings.models import Booking
+        from kalanconnect.accounts.serializers import UserSerializer
+
+        try:
+            profile = TeacherProfile.objects.get(user=request.user)
+        except TeacherProfile.DoesNotExist:
+            return Response({"error": "Profil introuvable"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Get unique students/parents
+        bookings = Booking.objects.filter(teacher=profile)
+        parent_ids = bookings.values_list("parent_id", flat=True).distinct()
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        results = []
+        for parent_id in parent_ids:
+            user = User.objects.get(id=parent_id)
+            parent_bookings = bookings.filter(parent=user)
+            last = parent_bookings.order_by("-date").first()
+            results.append({
+                "student": {
+                    "id": user.id,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "avatar": user.avatar.url if user.avatar else None,
+                    "role": user.role,
+                },
+                "total_sessions": parent_bookings.filter(status="completed").count(),
+                "last_session": str(last.date) if last else None,
+            })
+
+        return Response({"count": len(results), "results": results})
+
+
+# ──────────────────────────────────────────────
+# Suppression disponibilites & diplomes
+# ──────────────────────────────────────────────
+
+
+class AvailabilityDeleteView(generics.DestroyAPIView):
+    serializer_class = AvailabilitySerializer
+
+    def get_queryset(self):
+        return Availability.objects.filter(teacher__user=self.request.user)
+
+
+class DiplomaDeleteView(generics.DestroyAPIView):
+    serializer_class = DiplomaSerializer
+
+    def get_queryset(self):
+        return Diploma.objects.filter(teacher__user=self.request.user)

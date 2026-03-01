@@ -17,6 +17,7 @@ import Badge from "@/components/ui/Badge";
 import { adminAPI } from "@/api/services";
 import { colors, spacing, radius, fontSize, fontWeight } from "@/utils/theme";
 import { formatDate } from "@/utils/helpers";
+import Toast from "react-native-toast-message";
 import type { AdminUserListItem } from "@/types";
 
 const ROLE_FILTERS = [
@@ -51,6 +52,7 @@ export default function UserManagementScreen() {
       setUsers(res.results);
       setTotal(res.count);
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }
@@ -86,7 +88,9 @@ export default function UserManagementScreen() {
                   u.id === user.id ? { ...u, is_active: !u.is_active } : u
                 )
               );
-            } catch {}
+            } catch {
+              Toast.show({ type: "error", text1: "Erreur lors de la modification" });
+            }
           },
         },
       ]

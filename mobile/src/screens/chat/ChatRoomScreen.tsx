@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { chatAPI } from "@/api/services";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors, spacing, radius } from "@/utils/theme";
+import Toast from "react-native-toast-message";
 import type { Message } from "@/types";
 
 export default function ChatRoomScreen() {
@@ -42,7 +43,9 @@ export default function ChatRoomScreen() {
     const ws = chatAPI.connectWebSocket(conversationId);
     wsRef.current = ws;
 
-    ws.onerror = () => {};
+    ws.onerror = () => {
+      Toast.show({ type: "error", text1: "Erreur de connexion au chat" });
+    };
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === "message") {

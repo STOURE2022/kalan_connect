@@ -8,8 +8,10 @@ import {
   StyleSheet,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { teachersAPI } from "@/api/services";
+import Toast from "react-native-toast-message";
 import TeacherCard from "@/components/teachers/TeacherCard";
 import { colors, spacing, radius } from "@/utils/theme";
 import type { TeacherListItem, SearchFilters } from "@/types";
@@ -17,6 +19,7 @@ import type { TeacherListItem, SearchFilters } from "@/types";
 export default function SearchScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const insets = useSafeAreaInsets();
 
   const [query, setQuery] = useState(route.params?.q || "");
   const [results, setResults] = useState<TeacherListItem[]>([]);
@@ -46,7 +49,7 @@ export default function SearchScreen() {
         setTotalCount(data.count);
         setHasMore(!!data.next);
       } catch {
-        // ignore
+        Toast.show({ type: "error", text1: "Erreur de chargement" });
       } finally {
         setLoading(false);
       }
@@ -145,7 +148,7 @@ const styles = StyleSheet.create({
   searchBarContainer: {
     backgroundColor: colors.white,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[100],

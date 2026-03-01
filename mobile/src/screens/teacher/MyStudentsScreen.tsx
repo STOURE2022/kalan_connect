@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Avatar from "@/components/ui/Avatar";
 import { teachersAPI, chatAPI } from "@/api/services";
@@ -25,6 +26,7 @@ interface StudentItem {
 
 export default function MyStudentsScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [students, setStudents] = useState<StudentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,6 +36,7 @@ export default function MyStudentsScreen() {
       const res = await teachersAPI.getMyStudents();
       setStudents(res.results);
     } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
     } finally {
       setLoading(false);
     }
@@ -79,7 +82,7 @@ export default function MyStudentsScreen() {
         data={students}
         keyExtractor={(item) => String(item.student.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Avatar

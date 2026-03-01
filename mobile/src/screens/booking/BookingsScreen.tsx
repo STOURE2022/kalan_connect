@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { bookingsAPI } from "@/api/services";
+import Toast from "react-native-toast-message";
 import { useAuth } from "@/contexts/AuthContext";
 import Badge from "@/components/ui/Badge";
 import { colors, spacing, radius, fontSize } from "@/utils/theme";
@@ -18,6 +20,7 @@ const statusConfig: Record<string, { label: string; variant: "green" | "yellow" 
 
 export default function BookingsScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { isLoggedIn } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +31,9 @@ export default function BookingsScreen() {
     try {
       const data = await bookingsAPI.list();
       setBookings(data.results);
-    } catch {}
+    } catch {
+      Toast.show({ type: "error", text1: "Erreur de chargement" });
+    }
     setLoading(false);
   }, [isLoggedIn]);
 
@@ -105,7 +110,7 @@ export default function BookingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.gray[50] },
-  title: { fontSize: fontSize.xl, fontWeight: "800", color: colors.gray[900], paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
+  title: { fontSize: fontSize.xl, fontWeight: "800", color: colors.gray[900], paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
   card: { backgroundColor: colors.white, marginHorizontal: spacing.lg, marginTop: spacing.md, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.gray[100] },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   cardSubject: { fontSize: 15, fontWeight: "700", color: colors.gray[900] },

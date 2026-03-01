@@ -9,8 +9,8 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Conversation, Message
-from .serializers import ConversationSerializer, MessageSerializer
+from .models import AppNotification, Conversation, Message
+from .serializers import ConversationSerializer, MessageSerializer, NotificationSerializer
 
 User = get_user_model()
 
@@ -99,3 +99,47 @@ class MarkAsReadView(APIView):
             is_read=False,
         ).exclude(sender=user).update(is_read=True)
         return Response({"marked_read": updated})
+
+
+class NotificationListView(generics.ListAPIView):
+    """GET /api/v1/notifications/"""
+    serializer_class = NotificationSerializer
+
+    def get_queryset(self):
+        return AppNotification.objects.filter(user=self.request.user)
+
+
+class NotificationMarkReadView(APIView):
+    """POST /api/v1/notifications/<id>/read/"""
+    def post(self, request, pk):
+        try:
+            notif = AppNotification.objects.get(pk=pk, user=request.user)
+            notif.is_read = True
+            notif.save(update_fields=["is_read"])
+            return Response({"status": "read"})
+        except AppNotification.DoesNotExist:
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class NotificationMarkAllReadView(APIView):
+    """POST /api/v1/notifications/read-all/"""
+    def post(self, request):
+        count = AppNotification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        return Response({"marked_read": count})
+
+
+class NotificationUnreadCountView(APIView):
+    """GET /api/v1/notifications/unread-count/"""
+    def get(self, request):
+        count = AppNotification.objects.filter(user=request.user, is_read=False).count()
+        return Response({"count": count})
+
+
+class RegisterPushTokenView(APIView):
+    """POST /api/v1/notifications/register-push/"""
+    def post(self, request):
+        token = request.data.get("token", "")
+        if token:
+            request.user.fcm_token = token
+            request.user.save(update_fields=["fcm_token"])
+        return Response({"status": "ok"})
