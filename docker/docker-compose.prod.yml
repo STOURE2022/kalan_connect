@@ -23,8 +23,10 @@ services:
       dockerfile: docker/Dockerfile.backend
     environment:
       - DEBUG=False
+      - DB_ENGINE=postgresql
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-kalanconnect.ml}
+      - CORS_ALLOWED_ORIGINS=https://kalanconnect.ml,https://www.kalanconnect.ml
       - DB_HOST=postgres
       - DB_NAME=${DB_NAME:-kalanconnect}
       - DB_USER=${DB_USER:-postgres}
@@ -53,6 +55,7 @@ services:
       dockerfile: docker/Dockerfile.backend
     environment:
       - DEBUG=False
+      - DB_ENGINE=postgresql
       - SECRET_KEY=${SECRET_KEY}
       - DB_HOST=postgres
       - DB_NAME=${DB_NAME:-kalanconnect}
@@ -72,6 +75,7 @@ services:
       dockerfile: docker/Dockerfile.backend
     environment:
       - DEBUG=False
+      - DB_ENGINE=postgresql
       - SECRET_KEY=${SECRET_KEY}
       - DB_HOST=postgres
       - DB_NAME=${DB_NAME:-kalanconnect}
@@ -106,6 +110,7 @@ services:
       - static_data:/var/www/static:ro
       - media_data:/var/www/media:ro
       - certbot_data:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
     depends_on:
       - backend
       - frontend
@@ -115,6 +120,7 @@ services:
     image: certbot/certbot
     volumes:
       - certbot_data:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do sleep 12h; certbot renew --quiet; done;'"
 
 volumes:
@@ -122,3 +128,4 @@ volumes:
   media_data:
   static_data:
   certbot_data:
+  certbot_www:

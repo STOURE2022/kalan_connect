@@ -13,7 +13,11 @@ django-environ>=0.11
 
 # WebSocket / Chat temps réel
 channels>=4.2
+channels-redis>=4.2
 daphne>=4.1
+
+# Cache Redis
+django-redis>=5.4
 
 # Tâches asynchrones
 celery>=5.4

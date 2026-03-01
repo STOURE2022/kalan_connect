@@ -1,0 +1,14 @@
+.git
+.gitignore
+*.md
+__pycache__
+*.pyc
+.env
+.env.*
+node_modules
+.next
+*.sqlite3
+media/
+venv/
+.venv/
+npx
