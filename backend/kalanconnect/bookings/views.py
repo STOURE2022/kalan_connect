@@ -243,8 +243,14 @@ class BookingPackCreateView(generics.CreateAPIView):
     serializer_class = BookingPackCreateSerializer
     permission_classes = [IsParentOrEtudiantWithSubscription]
 
-    def perform_create(self, serializer):
-        serializer.save()
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        pack = serializer.save()
+        return Response(
+            BookingPackSerializer(pack).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class BookingPackListView(generics.ListAPIView):

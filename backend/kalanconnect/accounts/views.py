@@ -4,7 +4,7 @@ KalanConnect — Views Auth & User
 
 from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions, status
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -45,7 +45,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     """GET/PATCH /api/v1/auth/profile/ — Mon profil"""
 
     serializer_class = UserSerializer
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_object(self):
         return self.request.user
@@ -66,7 +66,7 @@ class VerifyPhoneView(APIView):
 class ChildListCreateView(generics.ListCreateAPIView):
     """GET/POST /api/v1/children/"""
     serializer_class = ChildSerializer
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         return Child.objects.filter(parent=self.request.user).select_related("level")
@@ -78,7 +78,7 @@ class ChildListCreateView(generics.ListCreateAPIView):
 class ChildDetailView(generics.RetrieveUpdateDestroyAPIView):
     """GET/PUT/PATCH/DELETE /api/v1/children/<id>/"""
     serializer_class = ChildSerializer
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         return Child.objects.filter(parent=self.request.user)

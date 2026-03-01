@@ -138,15 +138,17 @@ class BookingPackSerializer(serializers.ModelSerializer):
     """Serializer complet pour un pack de cours"""
 
     buyer = UserMinimalSerializer(read_only=True)
+    teacher = serializers.IntegerField(source="teacher.id", read_only=True)
     teacher_name = serializers.CharField(
         source="teacher.user.get_full_name",
         read_only=True,
     )
+    subject = serializers.IntegerField(source="subject.id", read_only=True)
     subject_name = serializers.CharField(
         source="subject.name",
         read_only=True,
     )
-    remaining_sessions = serializers.IntegerField(read_only=True)
+    remaining_sessions = serializers.SerializerMethodField()
 
     class Meta:
         model = BookingPack
@@ -173,6 +175,9 @@ class BookingPackSerializer(serializers.ModelSerializer):
             "price_per_session", "total_price", "discount_percent",
             "status", "expires_at", "created_at",
         ]
+
+    def get_remaining_sessions(self, obj):
+        return obj.total_sessions - obj.used_sessions
 
 
 class BookingPackCreateSerializer(serializers.Serializer):

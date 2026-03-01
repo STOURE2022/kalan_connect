@@ -132,13 +132,13 @@ class NotificationUnreadCountView(APIView):
     """GET /api/v1/notifications/unread-count/"""
     def get(self, request):
         count = AppNotification.objects.filter(user=request.user, is_read=False).count()
-        return Response({"count": count})
+        return Response({"unread_count": count})
 
 
 class RegisterPushTokenView(APIView):
     """POST /api/v1/notifications/register-push/"""
     def post(self, request):
-        token = request.data.get("token", "")
+        token = request.data.get("fcm_token") or request.data.get("token", "")
         if token:
             request.user.fcm_token = token
             request.user.save(update_fields=["fcm_token"])
