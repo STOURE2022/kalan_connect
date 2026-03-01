@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search as SearchIcon } from "lucide-react";
 import { teachers as teachersApi } from "@/lib/api";
@@ -10,6 +10,25 @@ import { TeacherCardSkeleton } from "@/components/ui/LoadingSpinner";
 import type { SearchFilters as FiltersType, TeacherListItem } from "@/types";
 
 export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="mx-auto max-w-7xl px-4 py-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Trouver un professeur</h1>
+        </div>
+        <div className="mt-6 space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <TeacherCardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    }>
+      <SearchContent />
+    </Suspense>
+  );
+}
+
+function SearchContent() {
   const searchParams = useSearchParams();
 
   const [filters, setFilters] = useState<FiltersType>({
