@@ -93,9 +93,9 @@ services:
     build:
       context: ../frontend
       dockerfile: ../docker/Dockerfile.frontend
-    environment:
-      - NEXT_PUBLIC_API_URL=https://${DOMAIN:-kalanconnect.ml}/api/v1
-      - NEXT_PUBLIC_WS_URL=wss://${DOMAIN:-kalanconnect.ml}
+      args:
+        - NEXT_PUBLIC_API_URL=https://${DOMAIN:-kalanconnect.ml}/api/v1
+        - NEXT_PUBLIC_WS_URL=wss://${DOMAIN:-kalanconnect.ml}
     depends_on:
       - backend
     restart: always

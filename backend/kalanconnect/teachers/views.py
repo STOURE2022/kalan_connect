@@ -52,10 +52,20 @@ class LevelListView(generics.ListAPIView):
 # ──────────────────────────────────────────────
 
 
+class IsTeacher(permissions.BasePermission):
+    """Seuls les utilisateurs avec le rôle 'teacher' peuvent accéder."""
+
+    message = "Seuls les professeurs peuvent créer un profil enseignant."
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == "teacher"
+
+
 class TeacherProfileCreateView(generics.CreateAPIView):
     """POST /api/v1/teachers/profile/ — Créer son profil professeur"""
 
     serializer_class = TeacherProfileCreateSerializer
+    permission_classes = [IsTeacher]
 
     def perform_create(self, serializer):
         serializer.save()
