@@ -1,13 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Menu, X, Search, User as UserIcon } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Menu, X, Search, User as UserIcon, Bell } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useNotifications } from "@/hooks/useNotifications";
+import { sessions as sessionsApi } from "@/lib/api";
 
 export default function Navbar() {
   const { user, isLoggedIn, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { unreadCount } = useNotifications();
+  const [openSessionsCount, setOpenSessionsCount] = useState(0);
+
+  useEffect(() => {
+    sessionsApi.list({ status: "open" })
+      .then((res) => setOpenSessionsCount(res.count ?? 0))
+      .catch(() => {});
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-lg">
@@ -31,6 +41,17 @@ export default function Navbar() {
             <Search size={16} />
             Trouver un prof
           </Link>
+          <Link
+            href="/events"
+            className="relative flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-primary-600"
+          >
+            Événements
+            {openSessionsCount > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-black text-white">
+                {openSessionsCount > 9 ? "9+" : openSessionsCount}
+              </span>
+            )}
+          </Link>
 
           {isLoggedIn ? (
             <div className="flex items-center gap-4">
@@ -40,6 +61,21 @@ export default function Navbar() {
               >
                 Messages
               </Link>
+
+              {/* Cloche notifications */}
+              <Link
+                href="/profile/notifications"
+                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-colors"
+                title="Notifications"
+              >
+                <Bell size={17} className="text-gray-600" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </Link>
+
               <Link
                 href="/profile"
                 className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-primary-600"
@@ -71,13 +107,28 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Mobile menu button */}
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-lg p-2 hover:bg-gray-100 md:hidden"
-        >
-          {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+        {/* Mobile : cloche + menu */}
+        <div className="flex items-center gap-2 md:hidden">
+          {isLoggedIn && (
+            <Link
+              href="/profile/notifications"
+              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-gray-100 bg-white"
+            >
+              <Bell size={17} className="text-gray-600" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </Link>
+          )}
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="rounded-lg p-2 hover:bg-gray-100"
+          >
+            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </nav>
 
       {/* Mobile menu */}
@@ -90,6 +141,18 @@ export default function Navbar() {
               onClick={() => setMobileOpen(false)}
             >
               Trouver un professeur
+            </Link>
+            <Link
+              href="/events"
+              className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              onClick={() => setMobileOpen(false)}
+            >
+              <span>Événements</span>
+              {openSessionsCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-black text-white">
+                  {openSessionsCount > 9 ? "9+" : openSessionsCount}
+                </span>
+              )}
             </Link>
             {isLoggedIn ? (
               <>
@@ -108,13 +171,10 @@ export default function Navbar() {
                   Mon profil
                 </Link>
                 <button
-                  onClick={() => {
-                    logout();
-                    setMobileOpen(false);
-                  }}
+                  onClick={() => { logout(); setMobileOpen(false); }}
                   className="rounded-lg px-3 py-2 text-left text-sm font-medium text-red-500 hover:bg-red-50"
                 >
-                  Se deconnecter
+                  Se déconnecter
                 </button>
               </>
             ) : (

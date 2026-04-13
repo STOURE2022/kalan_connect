@@ -72,10 +72,10 @@ export default function BookingPage() {
     ).values(),
   ];
 
-  // Generate next 14 days
+  // Generate today + next 13 days
   const nextDays = Array.from({ length: 14 }).map((_, i) => {
     const d = new Date();
-    d.setDate(d.getDate() + i + 1);
+    d.setDate(d.getDate() + i);
     return d;
   });
 

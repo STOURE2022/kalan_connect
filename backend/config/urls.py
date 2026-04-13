@@ -8,8 +8,12 @@ from django.urls import include, path
 from kalanconnect.accounts.admin_views import (
     AdminBookingsListView,
     AdminDashboardView,
+    AdminDeleteReviewView,
+    AdminIncompleteTeachersView,
     AdminPendingTeachersView,
     AdminRevenueView,
+    AdminReviewsView,
+    AdminSubscriptionsView,
     AdminToggleUserActiveView,
     AdminUserDetailView,
     AdminUserListView,
@@ -41,6 +45,7 @@ urlpatterns = [
     path("api/v1/chat/", include("kalanconnect.chat.urls")),
     path("api/v1/payments/", include("kalanconnect.payments.urls")),
     path("api/v1/search/", include("kalanconnect.search.urls")),
+    path("api/v1/sessions/", include("kalanconnect.sessions.urls")),
     # Notifications
     path("api/v1/notifications/", NotificationListView.as_view(), name="notifications-list"),
     path("api/v1/notifications/<int:pk>/read/", NotificationMarkReadView.as_view(), name="notification-read"),
@@ -64,8 +69,12 @@ urlpatterns = [
     path("api/v1/admin/users/<int:pk>/", AdminUserDetailView.as_view(), name="admin-user-detail"),
     path("api/v1/admin/users/<int:pk>/toggle-active/", AdminToggleUserActiveView.as_view(), name="admin-toggle-user"),
     path("api/v1/admin/teachers/pending/", AdminPendingTeachersView.as_view(), name="admin-pending-teachers"),
+    path("api/v1/admin/teachers/incomplete/", AdminIncompleteTeachersView.as_view(), name="admin-incomplete-teachers"),
     path("api/v1/admin/teachers/<int:pk>/verify/", AdminVerifyTeacherView.as_view(), name="admin-verify-teacher"),
     path("api/v1/admin/bookings/", AdminBookingsListView.as_view(), name="admin-bookings"),
+    path("api/v1/admin/subscriptions/", AdminSubscriptionsView.as_view(), name="admin-subscriptions"),
+    path("api/v1/admin/reviews/", AdminReviewsView.as_view(), name="admin-reviews"),
+    path("api/v1/admin/reviews/<int:pk>/", AdminDeleteReviewView.as_view(), name="admin-review-delete"),
     path("api/v1/admin/revenue/", AdminRevenueView.as_view(), name="admin-revenue"),
 ]
 

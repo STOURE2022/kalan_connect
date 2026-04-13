@@ -87,10 +87,20 @@ class TeacherProfileDetailView(generics.RetrieveUpdateAPIView):
 class MyTeacherProfileView(generics.RetrieveUpdateAPIView):
     """GET/PATCH /api/v1/teachers/me/ — Mon profil professeur"""
 
-    serializer_class = TeacherProfileCreateSerializer
+    permission_classes = [IsTeacher]
+
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return TeacherProfileCreateSerializer
+        return TeacherProfileDetailSerializer
 
     def get_object(self):
-        return TeacherProfile.objects.get(user=self.request.user)
+        return TeacherProfile.objects.select_related("user").prefetch_related(
+            "teacher_subjects__subject",
+            "teacher_subjects__level",
+            "diplomas",
+            "availabilities",
+        ).get(user=self.request.user)
 
 
 # ──────────────────────────────────────────────
@@ -102,6 +112,7 @@ class DiplomaListCreateView(generics.ListCreateAPIView):
     """GET/POST /api/v1/teachers/diplomas/"""
 
     serializer_class = DiplomaSerializer
+    permission_classes = [IsTeacher]
 
     def get_queryset(self):
         return Diploma.objects.filter(teacher__user=self.request.user)
@@ -120,6 +131,7 @@ class AvailabilityListCreateView(generics.ListCreateAPIView):
     """GET/POST /api/v1/teachers/availability/"""
 
     serializer_class = AvailabilitySerializer
+    permission_classes = [IsTeacher]
 
     def get_queryset(self):
         return Availability.objects.filter(teacher__user=self.request.user)
@@ -155,6 +167,7 @@ class TeacherFilter(filters.FilterSet):
     min_rating = filters.NumberFilter(field_name="avg_rating", lookup_expr="gte")
     online = filters.BooleanFilter(field_name="teaches_online")
     verified = filters.BooleanFilter(field_name="is_verified")
+    concours = filters.BooleanFilter(field_name="is_concours_specialist")
 
     class Meta:
         model = TeacherProfile
@@ -279,6 +292,8 @@ def teacher_autocomplete(request):
 class TeacherStatsView(APIView):
     """GET /api/v1/teachers/me/stats/"""
 
+    permission_classes = [IsTeacher]
+
     def get(self, request):
         from kalanconnect.bookings.models import Booking
         from kalanconnect.payments.models import Payment
@@ -317,6 +332,8 @@ class TeacherStatsView(APIView):
 class TeacherStudentsView(APIView):
     """GET /api/v1/teachers/me/students/"""
 
+    permission_classes = [IsTeacher]
+
     def get(self, request):
         from kalanconnect.bookings.models import Booking
         from kalanconnect.accounts.serializers import UserSerializer
@@ -343,6 +360,7 @@ class TeacherStudentsView(APIView):
                     "id": user.id,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
+                    "phone": user.phone,
                     "avatar": user.avatar.url if user.avatar else None,
                     "role": user.role,
                 },
@@ -360,6 +378,7 @@ class TeacherStudentsView(APIView):
 
 class AvailabilityDeleteView(generics.DestroyAPIView):
     serializer_class = AvailabilitySerializer
+    permission_classes = [IsTeacher]
 
     def get_queryset(self):
         return Availability.objects.filter(teacher__user=self.request.user)
@@ -367,6 +386,7 @@ class AvailabilityDeleteView(generics.DestroyAPIView):
 
 class DiplomaDeleteView(generics.DestroyAPIView):
     serializer_class = DiplomaSerializer
+    permission_classes = [IsTeacher]
 
     def get_queryset(self):
         return Diploma.objects.filter(teacher__user=self.request.user)

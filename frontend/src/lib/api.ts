@@ -6,6 +6,7 @@ import type {
   AuthTokens,
   Booking,
   Conversation,
+  GroupSession,
   Level,
   Message,
   PaginatedResponse,
@@ -34,6 +35,11 @@ function setTokens(tokens: AuthTokens) {
 
 function clearTokens() {
   localStorage.removeItem("kalan_tokens");
+}
+
+/** Retourne le token d'accès courant (à utiliser dans les raw fetch) */
+export function getAccessToken(): string | null {
+  return getTokens()?.access ?? null;
 }
 
 // ── Fetch wrapper avec auth automatique ──
@@ -114,7 +120,7 @@ export const auth = {
     first_name: string;
     last_name: string;
     email?: string;
-    role: "parent" | "teacher";
+    role: "parent" | "teacher" | "student" | "etudiant";
     city: string;
     neighborhood?: string;
     password: string;
@@ -272,10 +278,19 @@ export const chat = {
     );
   },
 
+  async uploadAttachment(conversationId: number, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiFetch<Message>(`/chat/conversations/${conversationId}/upload/`, {
+      method: "POST",
+      body: formData,
+    });
+  },
+
   connectWebSocket(conversationId: number) {
-    const wsUrl =
-      process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
-    return new WebSocket(`${wsUrl}/ws/chat/${conversationId}/`);
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+    const token = getAccessToken() ?? "";
+    return new WebSocket(`${wsUrl}/ws/chat/${conversationId}/?token=${token}`);
   },
 };
 
@@ -309,11 +324,87 @@ export const payments = {
       body: JSON.stringify({ plan, phone_number: phoneNumber }),
     });
   },
+
+  async mockConfirm(plan: "monthly" | "annual") {
+    return apiFetch<{ status: string; plan: string; end_date: string }>(
+      "/payments/mock-confirm/",
+      { method: "POST", body: JSON.stringify({ plan }) },
+    );
+  },
 };
 
 // ──────────────────────────────────────────
 // SEARCH
 // ──────────────────────────────────────────
+
+// ──────────────────────────────────────────
+// SESSIONS DE GROUPE
+// ──────────────────────────────────────────
+
+export const sessions = {
+  async list(filters?: {
+    subject?: string;
+    status?: string;
+    teacher?: number;
+    q?: string;
+    location_type?: string;
+    price?: "free" | "paid";
+    date?: "today" | "week" | "upcoming";
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.subject)       params.set("subject",       filters.subject);
+    if (filters?.status)        params.set("status",        filters.status);
+    if (filters?.teacher)       params.set("teacher",       String(filters.teacher));
+    if (filters?.q)             params.set("q",             filters.q);
+    if (filters?.location_type) params.set("location_type", filters.location_type);
+    if (filters?.price)         params.set("price",         filters.price);
+    if (filters?.date)          params.set("date",          filters.date);
+    return apiFetch<PaginatedResponse<GroupSession>>(`/sessions/?${params.toString()}`);
+  },
+
+  async getById(id: number) {
+    return apiFetch<GroupSession>(`/sessions/${id}/`);
+  },
+
+  async create(data: {
+    subject: number; title: string; description?: string;
+    date: string; start_time: string; end_time: string;
+    location_type: string; address?: string;
+    max_participants: number; price_per_student: number;
+  }) {
+    return apiFetch<GroupSession>("/sessions/create/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(id: number, data: Partial<Parameters<typeof sessions.create>[0]>) {
+    return apiFetch<GroupSession>(`/sessions/${id}/update/`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async myList() {
+    return apiFetch<PaginatedResponse<GroupSession>>("/sessions/my/");
+  },
+
+  async register(id: number) {
+    return apiFetch<GroupSession>(`/sessions/${id}/register/`, { method: "POST" });
+  },
+
+  async unregister(id: number) {
+    return apiFetch<GroupSession>(`/sessions/${id}/unregister/`, { method: "POST" });
+  },
+
+  async cancel(id: number) {
+    return apiFetch<GroupSession>(`/sessions/${id}/cancel/`, { method: "POST" });
+  },
+
+  async complete(id: number) {
+    return apiFetch<GroupSession>(`/sessions/${id}/complete/`, { method: "POST" });
+  },
+};
 
 export const search = {
   async global(q: string, city = "Bamako") {

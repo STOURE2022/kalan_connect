@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "kalanconnect.chat",
     "kalanconnect.payments",
     "kalanconnect.search",
+    "kalanconnect.sessions",
 ]
 
 MIDDLEWARE = [
@@ -268,5 +269,10 @@ SUBSCRIPTION_PLANS = {
         "name": "Annuel",
         "price": 15000,  # FCFA (10 mois = 2 mois offerts)
         "duration_days": 365,
+    },
+    "concours": {
+        "name": "Préparation Concours",
+        "price": 3500,  # FCFA (3 mois — économie de 1000 FCFA vs mensuel)
+        "duration_days": 90,
     },
 }

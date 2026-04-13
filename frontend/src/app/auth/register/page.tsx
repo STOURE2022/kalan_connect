@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Phone, Lock, User, Mail, MapPin } from "lucide-react";
@@ -11,8 +11,14 @@ import { cn } from "@/lib/utils";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useAuth();
-  const [role, setRole] = useState<"parent" | "teacher">("parent");
+  const { register, isLoggedIn, loading: authLoading, user } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && isLoggedIn && user) {
+      router.replace(user.role === "teacher" ? "/dashboard/teacher" : "/dashboard");
+    }
+  }, [authLoading, isLoggedIn, user, router]);
+  const [role, setRole] = useState<"parent" | "teacher" | "student" | "etudiant">("parent");
   const [form, setForm] = useState({
     phone: "",
     first_name: "",
@@ -32,7 +38,7 @@ export default function RegisterPage() {
     e.preventDefault();
 
     if (form.password !== form.password_confirm) {
-      toast.error("Les mots de passe ne correspondent pas");
+      toast.error("Les mots de passe ne correspondent pas 🔐❌");
       return;
     }
 
@@ -40,13 +46,13 @@ export default function RegisterPage() {
     try {
       await register({ ...form, role });
       toast.success("Compte cree avec succes !");
-      router.push(role === "teacher" ? "/profile" : "/");
+      router.push(role === "teacher" ? "/dashboard/teacher" : "/dashboard");
     } catch (err) {
       if (err instanceof ApiError) {
         const messages = Object.values(err.data).flat().join(", ");
-        toast.error(messages || "Erreur lors de l'inscription");
+        toast.error(messages || "Erreur lors de l'inscription 🔐");
       } else {
-        toast.error("Erreur de connexion au serveur");
+        toast.error("Erreur de connexion au serveur 📡");
       }
     } finally {
       setLoading(false);
@@ -69,31 +75,29 @@ export default function RegisterPage() {
         </div>
 
         {/* Role selector */}
-        <div className="mt-6 flex gap-2 rounded-xl bg-gray-100 p-1">
-          <button
-            type="button"
-            onClick={() => setRole("parent")}
-            className={cn(
-              "flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all",
-              role === "parent"
-                ? "bg-white text-primary-600 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            )}
-          >
-            Je suis parent
-          </button>
-          <button
-            type="button"
-            onClick={() => setRole("teacher")}
-            className={cn(
-              "flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all",
-              role === "teacher"
-                ? "bg-white text-primary-600 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            )}
-          >
-            Je suis professeur
-          </button>
+        <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl bg-gray-100 p-1">
+          {(
+            [
+              { value: "parent", label: "Parent" },
+              { value: "teacher", label: "Professeur" },
+              { value: "student", label: "Élève" },
+              { value: "etudiant", label: "Étudiant" },
+            ] as const
+          ).map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setRole(value)}
+              className={cn(
+                "rounded-lg py-2.5 text-sm font-semibold transition-all",
+                role === value
+                  ? "bg-white text-primary-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-3">
@@ -101,7 +105,7 @@ export default function RegisterPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-600">
-                Prenom
+                Prénom
               </label>
               <div className="relative">
                 <User
@@ -136,7 +140,7 @@ export default function RegisterPage() {
           {/* Phone */}
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">
-              Telephone
+              Téléphone
             </label>
             <div className="relative">
               <Phone
@@ -226,7 +230,7 @@ export default function RegisterPage() {
                   type="password"
                   value={form.password}
                   onChange={(e) => update("password", e.target.value)}
-                  placeholder="Min. 6 caracteres"
+                  placeholder="Min. 6 caractères"
                   className="input !pl-9 !py-2.5 text-sm"
                   required
                   minLength={6}
@@ -253,12 +257,12 @@ export default function RegisterPage() {
             disabled={loading}
             className="btn-primary mt-2 w-full"
           >
-            {loading ? "Creation..." : "Creer mon compte"}
+            {loading ? "Création..." : "Créer mon compte"}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-500">
-          Deja un compte ?{" "}
+          Déjà un compte ?{" "}
           <Link
             href="/auth/login"
             className="font-semibold text-primary-600 hover:text-primary-700"

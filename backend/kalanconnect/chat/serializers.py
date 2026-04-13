@@ -11,6 +11,8 @@ from .models import AppNotification, Conversation, Message
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = UserMinimalSerializer(read_only=True)
+    attachment_url = serializers.SerializerMethodField()
+    attachment_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -21,10 +23,25 @@ class MessageSerializer(serializers.ModelSerializer):
             "content",
             "message_type",
             "attachment",
+            "attachment_url",
+            "attachment_name",
             "is_read",
             "created_at",
         ]
         read_only_fields = ["id", "sender", "is_read", "created_at"]
+
+    def get_attachment_url(self, obj):
+        if not obj.attachment:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.attachment.url)
+        return obj.attachment.url
+
+    def get_attachment_name(self, obj):
+        if not obj.attachment:
+            return None
+        return obj.attachment.name.split("/")[-1]
 
 
 class ConversationSerializer(serializers.ModelSerializer):
@@ -50,8 +67,14 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_last_message(self, obj):
         msg = obj.messages.order_by("-created_at").first()
         if msg:
+            preview = msg.content
+            if not preview:
+                if msg.message_type == "image":
+                    preview = "📷 Photo"
+                elif msg.message_type == "file":
+                    preview = "📎 Fichier"
             return {
-                "content": msg.content,
+                "content": preview,
                 "sender_id": msg.sender_id,
                 "created_at": msg.created_at,
                 "is_read": msg.is_read,

@@ -22,7 +22,7 @@ from .serializers import (
 
 
 class IsParentOrEtudiantWithSubscription(permissions.BasePermission):
-    """Le parent ou l'étudiant doit avoir un abonnement actif pour réserver"""
+    """Le parent, l'élève (student) ou l'étudiant (etudiant) doit avoir un abonnement actif pour réserver"""
 
     message = "Vous devez avoir un abonnement actif pour réserver un cours."
 
@@ -30,7 +30,7 @@ class IsParentOrEtudiantWithSubscription(permissions.BasePermission):
         user = request.user
         return (
             user.is_authenticated
-            and (user.is_parent or user.is_etudiant)
+            and (user.is_parent or user.is_etudiant or user.is_student)
             and user.has_active_subscription
         )
 
@@ -70,7 +70,7 @@ class BookingListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_parent or user.is_etudiant:
+        if user.is_parent or user.is_etudiant or user.is_student:
             return Booking.objects.filter(parent=user).select_related(
                 "teacher__user", "subject"
             )
@@ -88,7 +88,7 @@ class BookingDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_parent or user.is_etudiant:
+        if user.is_parent or user.is_etudiant or user.is_student:
             return Booking.objects.filter(parent=user)
         elif user.is_teacher:
             return Booking.objects.filter(teacher__user=user)
@@ -172,6 +172,54 @@ def booking_action(request, pk, action):
         teacher = booking.teacher
         teacher.total_bookings += 1
         teacher.save(update_fields=["total_bookings"])
+
+    # Notifications automatiques (scénarios 1.6 et 4.5)
+    try:
+        from kalanconnect.chat.models import AppNotification
+        subject_name = booking.subject.name if booking.subject else "cours"
+        teacher_name = f"{booking.teacher.user.first_name} {booking.teacher.user.last_name}"
+
+        if action == "confirm":
+            # Notifier le parent/étudiant que le prof a confirmé (scénario 4.5)
+            AppNotification.objects.create(
+                user=booking.parent,
+                title="Cours confirmé !",
+                message=f"Votre cours de {subject_name} avec {teacher_name} a été confirmé pour le {booking.date}.",
+                type="booking",
+                data={"booking_id": booking.id},
+            )
+        elif action == "complete":
+            # Notifier le parent/étudiant de laisser un avis (scénario 1.6)
+            AppNotification.objects.create(
+                user=booking.parent,
+                title="Cours terminé — Laissez un avis",
+                message=f"Votre cours de {subject_name} avec {teacher_name} est terminé. Partagez votre expérience en laissant un avis !",
+                type="review",
+                data={"booking_id": booking.id, "teacher_id": booking.teacher.id},
+            )
+        elif action == "cancel":
+            # Notifier l'autre partie de l'annulation
+            if is_teacher:
+                # Le prof annule → notifier le parent
+                AppNotification.objects.create(
+                    user=booking.parent,
+                    title="Cours annulé",
+                    message=f"Votre cours de {subject_name} avec {teacher_name} prévu le {booking.date} a été annulé.",
+                    type="booking",
+                    data={"booking_id": booking.id},
+                )
+            elif is_booker:
+                # Le parent annule → notifier le prof
+                booker_name = f"{booking.parent.first_name} {booking.parent.last_name}"
+                AppNotification.objects.create(
+                    user=booking.teacher.user,
+                    title="Cours annulé",
+                    message=f"{booker_name} a annulé le cours de {subject_name} prévu le {booking.date}.",
+                    type="booking",
+                    data={"booking_id": booking.id},
+                )
+    except Exception:
+        pass
 
     return Response(BookingSerializer(booking).data)
 

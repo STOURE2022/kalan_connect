@@ -194,6 +194,67 @@ class OrangeMoneyWebhookView(APIView):
         subscription.save()
 
 
+class MockPaymentView(APIView):
+    """
+    POST /api/v1/payments/mock-confirm/
+
+    Active un abonnement instantanément sans Orange Money.
+    Disponible UNIQUEMENT en mode DEBUG=True.
+    """
+
+    def post(self, request):
+        if not settings.DEBUG:
+            return Response(
+                {"error": "Non disponible en production"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        plan = request.data.get("plan", "monthly")
+        if plan not in ("monthly", "annual", "concours"):
+            return Response(
+                {"error": "Plan invalide"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        plan_config = settings.SUBSCRIPTION_PLANS[plan]
+        now = timezone.now()
+
+        # Annuler les abonnements pending existants
+        Subscription.objects.filter(
+            user=request.user,
+            status=Subscription.Status.PENDING,
+        ).delete()
+
+        # Créer l'abonnement actif directement
+        subscription = Subscription.objects.create(
+            user=request.user,
+            plan=plan,
+            status=Subscription.Status.ACTIVE,
+            start_date=now,
+            end_date=now + timedelta(days=plan_config["duration_days"]),
+        )
+
+        # Créer le paiement marqué succès
+        Payment.objects.create(
+            user=request.user,
+            subscription=subscription,
+            amount=plan_config["price"],
+            provider=Payment.Provider.ORANGE_MONEY,
+            status=Payment.Status.SUCCESS,
+            idempotency_key=f"mock-{request.user.id}-{uuid.uuid4().hex[:8]}",
+            paid_at=now,
+            metadata={"mock": True, "plan": plan},
+        )
+
+        logger.info(f"[MOCK] Abonnement {plan} activé pour {request.user}")
+
+        return Response({
+            "status": "success",
+            "plan": plan,
+            "end_date": subscription.end_date,
+        })
+
+
 class CheckSubscriptionView(APIView):
     """
     GET /api/v1/payments/check-subscription/

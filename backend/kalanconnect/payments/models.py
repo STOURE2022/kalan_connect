@@ -14,6 +14,7 @@ class Subscription(models.Model):
     class Plan(models.TextChoices):
         MONTHLY = "monthly", "Mensuel — 1 500 FCFA"
         ANNUAL = "annual", "Annuel — 15 000 FCFA"
+        CONCOURS = "concours", "Concours — 3 500 FCFA (3 mois)"
 
     class Status(models.TextChoices):
         ACTIVE = "active", "Actif"

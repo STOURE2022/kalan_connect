@@ -73,7 +73,10 @@ class TeacherProfileListSerializer(serializers.ModelSerializer):
             "total_reviews",
             "is_verified",
             "is_featured",
+            "is_concours_specialist",
             "teaches_online",
+            "teaches_at_home",
+            "teaches_at_student",
             "subjects",
             "distance_km",
         ]
@@ -90,6 +93,7 @@ class TeacherProfileDetailSerializer(serializers.ModelSerializer):
     teacher_subjects = TeacherSubjectSerializer(many=True, read_only=True)
     diplomas = DiplomaSerializer(many=True, read_only=True)
     availabilities = AvailabilitySerializer(many=True, read_only=True)
+    verification_checklist = serializers.SerializerMethodField()
 
     class Meta:
         model = TeacherProfile
@@ -114,11 +118,31 @@ class TeacherProfileDetailSerializer(serializers.ModelSerializer):
             "response_time_hours",
             "is_verified",
             "is_featured",
+            "is_concours_specialist",
+            "identity_document_type",
+            "identity_document",
+            "cv",
+            "verification_checklist",
             "teacher_subjects",
             "diplomas",
             "availabilities",
             "created_at",
         ]
+
+    def get_verification_checklist(self, obj):
+        request = self.context.get("request")
+        def url(field):
+            if not field:
+                return None
+            if request:
+                return request.build_absolute_uri(field.url)
+            return field.url
+        return {
+            "photo":    {"ok": bool(obj.photo),             "url": url(obj.photo)},
+            "identity": {"ok": bool(obj.identity_document), "url": url(obj.identity_document), "type": obj.identity_document_type},
+            "diploma":  {"ok": obj.diplomas.filter(document__gt="").exists(), "count": obj.diplomas.count()},
+            "cv":       {"ok": bool(obj.cv),                "url": url(obj.cv)},
+        }
 
 
 class TeacherProfileCreateSerializer(serializers.ModelSerializer):
@@ -150,18 +174,24 @@ class TeacherProfileCreateSerializer(serializers.ModelSerializer):
             "teaches_online",
             "teaches_at_home",
             "teaches_at_student",
+            "is_concours_specialist",
+            "identity_document_type",
+            "identity_document",
+            "cv",
             "subject_ids",
             "level_ids",
         ]
+        extra_kwargs = {
+            "photo":              {"required": False, "allow_null": True},
+            "neighborhood":       {"required": False, "allow_blank": True},
+            "identity_document":  {"required": False, "allow_null": True},
+            "identity_document_type": {"required": False, "allow_blank": True},
+            "cv":                 {"required": False, "allow_null": True},
+        }
 
-    def create(self, validated_data):
-        subject_ids = validated_data.pop("subject_ids", [])
-        level_ids = validated_data.pop("level_ids", [])
-        user = self.context["request"].user
-
-        profile = TeacherProfile.objects.create(user=user, **validated_data)
-
-        # Créer les relations matière/niveau
+    def _sync_subjects(self, profile, subject_ids, level_ids):
+        """Remplace toutes les relations matière/niveau du profil."""
+        profile.teacher_subjects.all().delete()
         for subject_id in subject_ids:
             for level_id in level_ids:
                 TeacherSubject.objects.create(
@@ -170,4 +200,20 @@ class TeacherProfileCreateSerializer(serializers.ModelSerializer):
                     level_id=level_id,
                 )
 
+    def create(self, validated_data):
+        subject_ids = validated_data.pop("subject_ids", [])
+        level_ids = validated_data.pop("level_ids", [])
+        user = self.context["request"].user
+        profile = TeacherProfile.objects.create(user=user, **validated_data)
+        self._sync_subjects(profile, subject_ids, level_ids)
         return profile
+
+    def update(self, instance, validated_data):
+        subject_ids = validated_data.pop("subject_ids", None)
+        level_ids = validated_data.pop("level_ids", None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        if subject_ids is not None and level_ids is not None:
+            self._sync_subjects(instance, subject_ids, level_ids)
+        return instance

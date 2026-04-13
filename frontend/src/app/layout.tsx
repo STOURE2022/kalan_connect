@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Toaster } from "react-hot-toast";
+import Providers from "@/components/Providers";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import BottomNav from "@/components/layout/BottomNav";
@@ -31,17 +31,12 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body>
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 4000,
-            style: { borderRadius: "12px", fontSize: "14px" },
-          }}
-        />
-        <Navbar />
-        <main className="min-h-screen pb-20 md:pb-0">{children}</main>
-        <Footer />
-        <BottomNav />
+        <Providers>
+          <Navbar />
+          <main className="min-h-screen pb-20 md:pb-0">{children}</main>
+          <Footer />
+          <BottomNav />
+        </Providers>
       </body>
     </html>
   );

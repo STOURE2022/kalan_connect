@@ -103,9 +103,37 @@ class TeacherProfile(models.Model):
         help_text="Temps moyen de réponse en heures",
     )
 
+    # Documents de vérification
+    class IdentityDocType(models.TextChoices):
+        NINA      = "nina",      "Carte NINA"
+        PASSEPORT = "passeport", "Passeport"
+        CNI       = "cni",       "Carte Nationale d'Identité"
+
+    identity_document_type = models.CharField(
+        max_length=10,
+        choices=IdentityDocType.choices,
+        blank=True,
+        default="",
+        help_text="Type de pièce d'identité",
+    )
+    identity_document = models.FileField(
+        upload_to="teachers/identity/",
+        blank=True,
+        help_text="Scan pièce d'identité (NINA / Passeport / CNI)",
+    )
+    cv = models.FileField(
+        upload_to="teachers/cv/",
+        blank=True,
+        help_text="Curriculum Vitae du professeur",
+    )
+
     # Vérification
     is_verified = models.BooleanField(default=False)
     is_featured = models.BooleanField(default=False)
+    is_concours_specialist = models.BooleanField(
+        default=False,
+        help_text="Spécialiste en préparation aux concours",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

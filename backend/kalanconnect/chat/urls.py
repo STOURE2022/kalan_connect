@@ -17,4 +17,9 @@ urlpatterns = [
         views.MarkAsReadView.as_view(),
         name="mark-read",
     ),
+    path(
+        "conversations/<int:conversation_id>/upload/",
+        views.AttachmentUploadView.as_view(),
+        name="upload",
+    ),
 ]

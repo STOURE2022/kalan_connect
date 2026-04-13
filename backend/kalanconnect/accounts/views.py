@@ -127,6 +127,8 @@ class ChildProgressView(APIView):
 
 class StudentScheduleView(APIView):
     """GET /api/v1/student/schedule/"""
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
         from kalanconnect.bookings.models import Booking
         bookings = Booking.objects.filter(
@@ -149,6 +151,8 @@ class StudentScheduleView(APIView):
 
 class StudentProgressView(APIView):
     """GET /api/v1/student/progress/"""
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
         from kalanconnect.bookings.models import Booking, Review
         from django.db.models import Avg
@@ -178,6 +182,8 @@ class StudentProgressView(APIView):
 
 class StudentTeachersView(APIView):
     """GET /api/v1/student/teachers/"""
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
         from kalanconnect.bookings.models import Booking
         from kalanconnect.teachers.serializers import TeacherProfileListSerializer

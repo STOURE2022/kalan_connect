@@ -42,6 +42,7 @@ class Message(models.Model):
     class MessageType(models.TextChoices):
         TEXT = "text", "Texte"
         IMAGE = "image", "Image"
+        FILE = "file", "Fichier"
         BOOKING = "booking", "Réservation"
         SYSTEM = "system", "Système"
 

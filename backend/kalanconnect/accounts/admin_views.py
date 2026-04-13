@@ -12,8 +12,8 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from kalanconnect.bookings.models import Booking, Report
-from kalanconnect.bookings.serializers import BookingSerializer
+from kalanconnect.bookings.models import Booking, Report, Review
+from kalanconnect.bookings.serializers import BookingSerializer, ReviewSerializer
 from kalanconnect.payments.models import Payment, Subscription
 from kalanconnect.teachers.models import TeacherProfile
 from kalanconnect.teachers.serializers import TeacherProfileDetailSerializer
@@ -84,7 +84,10 @@ class AdminUserDetailView(APIView):
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
         data = UserSerializer(user).data
-        data["bookings_count"] = Booking.objects.filter(parent=user).count()
+        if user.role == "teacher":
+            data["bookings_count"] = Booking.objects.filter(teacher__user=user).count()
+        else:
+            data["bookings_count"] = Booking.objects.filter(parent=user).count()
         sub = Subscription.objects.filter(user=user, status="active").first()
         data["subscription"] = {
             "id": sub.id, "plan": sub.plan, "status": sub.status,
@@ -117,6 +120,32 @@ class AdminPendingTeachersView(generics.ListAPIView):
         return TeacherProfile.objects.filter(is_verified=False).select_related("user")
 
 
+class AdminIncompleteTeachersView(APIView):
+    """GET /api/v1/admin/teachers/incomplete/
+    Professeurs inscrits mais sans TeacherProfile (étape 2 non complétée).
+    """
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        teachers = User.objects.filter(
+            role="teacher",
+            teacher_profile__isnull=True,
+        ).order_by("-created_at")
+        data = [
+            {
+                "id": u.id,
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "phone": u.phone,
+                "city": u.city,
+                "is_active": u.is_active,
+                "created_at": u.created_at,
+            }
+            for u in teachers
+        ]
+        return Response(data)
+
+
 class AdminVerifyTeacherView(APIView):
     """POST /api/v1/admin/teachers/<id>/verify/"""
     permission_classes = [IsAdmin]
@@ -128,8 +157,49 @@ class AdminVerifyTeacherView(APIView):
             return Response({"error": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
 
         approved = request.data.get("approved", False)
+        reason = request.data.get("reason", "")
+        missing_docs = request.data.get("missing_docs", [])  # liste de clés : photo, identity, diploma, cv
         teacher.is_verified = approved
         teacher.save(update_fields=["is_verified"])
+
+        # Notifier le professeur du résultat de la vérification
+        try:
+            from kalanconnect.chat.models import AppNotification
+            if approved:
+                AppNotification.objects.create(
+                    user=teacher.user,
+                    title="Profil vérifié !",
+                    message="Félicitations ! Votre profil a été vérifié. Vous pouvez désormais recevoir des réservations.",
+                    type="system",
+                    data={"teacher_id": teacher.id},
+                )
+            else:
+                doc_labels = {
+                    "photo":    "photo de profil",
+                    "identity": "pièce d'identité (NINA / Passeport / CNI)",
+                    "diploma":  "scan de diplôme",
+                    "cv":       "CV",
+                }
+                if missing_docs:
+                    docs_str = ", ".join(doc_labels.get(d, d) for d in missing_docs)
+                    base_msg = f"Documents manquants : {docs_str}. "
+                else:
+                    base_msg = ""
+                full_msg = (
+                    f"Votre profil n'a pas pu être vérifié. "
+                    + base_msg
+                    + (f"Raison : {reason}" if reason else "Veuillez compléter votre profil et soumettre à nouveau.")
+                )
+                AppNotification.objects.create(
+                    user=teacher.user,
+                    title="Documents manquants",
+                    message=full_msg,
+                    type="system",
+                    data={"teacher_id": teacher.id, "missing_docs": missing_docs},
+                )
+        except Exception:
+            pass
+
         return Response(TeacherProfileDetailSerializer(teacher).data)
 
 
@@ -144,6 +214,62 @@ class AdminBookingsListView(generics.ListAPIView):
         if status_filter:
             qs = qs.filter(status=status_filter)
         return qs
+
+
+class AdminSubscriptionsView(APIView):
+    """GET /api/v1/admin/subscriptions/"""
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        qs = Subscription.objects.select_related("user").order_by("-created_at")
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        data = []
+        for sub in qs:
+            data.append({
+                "id": sub.id,
+                "plan": sub.plan,
+                "status": sub.status,
+                "price": sub.price,
+                "start_date": sub.start_date,
+                "end_date": sub.end_date,
+                "auto_renew": sub.auto_renew,
+                "created_at": sub.created_at,
+                "user": {
+                    "id": sub.user.id,
+                    "first_name": sub.user.first_name,
+                    "last_name": sub.user.last_name,
+                    "phone": sub.user.phone,
+                },
+            })
+        return Response(data)
+
+
+class AdminReviewsView(generics.ListAPIView):
+    """GET /api/v1/admin/reviews/"""
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAdmin]
+
+    def get_queryset(self):
+        qs = Review.objects.select_related("parent", "teacher__user").order_by("-created_at")
+        rating = self.request.query_params.get("rating")
+        if rating:
+            qs = qs.filter(rating=rating)
+        return qs
+
+
+class AdminDeleteReviewView(APIView):
+    """DELETE /api/v1/admin/reviews/<id>/"""
+    permission_classes = [IsAdmin]
+
+    def delete(self, request, pk):
+        try:
+            review = Review.objects.get(pk=pk)
+        except Review.DoesNotExist:
+            return Response({"error": "Review not found"}, status=status.HTTP_404_NOT_FOUND)
+        review.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AdminRevenueView(APIView):

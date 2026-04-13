@@ -3,9 +3,12 @@ KalanConnect — Views Chat (API REST pour l'historique)
 Le temps réel passe par WebSocket (consumers.py)
 """
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from rest_framework import generics, status
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -99,6 +102,89 @@ class MarkAsReadView(APIView):
             is_read=False,
         ).exclude(sender=user).update(is_read=True)
         return Response({"marked_read": updated})
+
+
+class AttachmentUploadView(APIView):
+    """POST /api/v1/chat/conversations/<id>/upload/ — Upload pièce jointe"""
+
+    parser_classes = [MultiPartParser]
+
+    def post(self, request, conversation_id):
+        user = request.user
+
+        # Vérifier que l'utilisateur fait partie de la conversation
+        try:
+            conversation = Conversation.objects.get(
+                Q(participant_1=user) | Q(participant_2=user),
+                id=conversation_id,
+            )
+        except Conversation.DoesNotExist:
+            return Response({"error": "Conversation introuvable"}, status=status.HTTP_404_NOT_FOUND)
+
+        attachment = request.FILES.get("file")
+        if not attachment:
+            return Response({"error": "Fichier requis"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Déterminer le type de message
+        content_type = attachment.content_type or ""
+        if content_type.startswith("image/"):
+            msg_type = Message.MessageType.IMAGE
+        else:
+            msg_type = Message.MessageType.FILE
+
+        message = Message.objects.create(
+            conversation=conversation,
+            sender=user,
+            content="",
+            message_type=msg_type,
+            attachment=attachment,
+        )
+
+        # Mettre à jour last_message_at de la conversation
+        conversation.save(update_fields=["last_message_at"])
+
+        # Notification in-app pour le destinataire
+        try:
+            from kalanconnect.chat.models import AppNotification
+            recipient = conversation.get_other_participant(user)
+            sender_name = f"{user.first_name} {user.last_name}"
+            preview = "📷 Photo" if msg_type == Message.MessageType.IMAGE else "📎 Fichier"
+            AppNotification.objects.create(
+                user=recipient,
+                title=f"💬 {sender_name}",
+                message=preview,
+                type=AppNotification.NotificationType.CHAT,
+                data={
+                    "conversation_id": conversation_id,
+                    "sender_id": user.id,
+                    "sender_name": sender_name,
+                },
+            )
+        except Exception:
+            pass
+
+        # Broadcaster via WebSocket
+        channel_layer = get_channel_layer()
+        group_name = f"chat_{conversation_id}"
+        serialized = MessageSerializer(message, context={"request": request}).data
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                "type": "chat_message",
+                "message": {
+                    "id": message.id,
+                    "sender_id": user.id,
+                    "sender_name": f"{user.first_name} {user.last_name}",
+                    "content": "",
+                    "message_type": msg_type,
+                    "attachment_url": serialized.get("attachment_url"),
+                    "attachment_name": serialized.get("attachment_name"),
+                    "created_at": message.created_at.isoformat(),
+                },
+            },
+        )
+
+        return Response(serialized, status=status.HTTP_201_CREATED)
 
 
 class NotificationListView(generics.ListAPIView):

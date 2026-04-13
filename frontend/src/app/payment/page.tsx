@@ -8,17 +8,22 @@ import {
   Shield,
   Loader2,
   CircleDollarSign,
+  FlaskConical,
+  Trophy,
 } from "lucide-react";
 import { payments as paymentsApi } from "@/lib/api";
+
+const IS_MOCK = process.env.NEXT_PUBLIC_MOCK_PAYMENT === "true";
 import { useAuth } from "@/hooks/useAuth";
 import { formatPrice, cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 
 type PaymentStep = "plan" | "processing" | "success" | "error";
+type PlanId = "monthly" | "annual" | "concours";
 
 const plans = [
   {
-    id: "monthly" as const,
+    id: "monthly" as PlanId,
     name: "Mensuel",
     price: 1500,
     perMonth: 1500,
@@ -30,12 +35,29 @@ const plans = [
     ],
   },
   {
-    id: "annual" as const,
+    id: "concours" as PlanId,
+    name: "Concours",
+    price: 3500,
+    perMonth: 1167,
+    description: "3 mois — prépa intensive",
+    badge: "🏆 Offre spéciale",
+    badgeColor: "bg-amber-500",
+    features: [
+      "Acces a tous les profs spécialistes",
+      "Messagerie illimitee",
+      "Reservation de cours",
+      "3 mois d'accès complet",
+      "Support prioritaire",
+    ],
+  },
+  {
+    id: "annual" as PlanId,
     name: "Annuel",
     price: 15000,
     perMonth: 1250,
     description: "2 mois offerts",
     badge: "Meilleure offre",
+    badgeColor: "bg-accent-500",
     features: [
       "Acces a tous les profils",
       "Messagerie illimitee",
@@ -62,8 +84,8 @@ function PaymentContent() {
   const searchParams = useSearchParams();
   const { isLoggedIn } = useAuth();
 
-  const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">(
-    (searchParams.get("plan") as "monthly" | "annual") || "annual"
+  const [selectedPlan, setSelectedPlan] = useState<PlanId>(
+    (searchParams.get("plan") as PlanId) || "annual"
   );
   const [phoneNumber, setPhoneNumber] = useState("");
   const [step, setStep] = useState<PaymentStep>("plan");
@@ -77,7 +99,7 @@ function PaymentContent() {
       return;
     }
 
-    if (!phoneNumber) {
+    if (!IS_MOCK && !phoneNumber) {
       toast.error("Entrez votre numero Orange Money");
       return;
     }
@@ -86,17 +108,19 @@ function PaymentContent() {
     setStep("processing");
 
     try {
+      if (IS_MOCK) {
+        // ── Mode test : activation directe sans Orange Money ──
+        await paymentsApi.mockConfirm(selectedPlan as "monthly" | "annual");
+        router.push(`/payment/success?plan=${selectedPlan}`);
+        return;
+      }
+
       const result = await paymentsApi.initiate(selectedPlan, phoneNumber);
 
-      // If Orange Money returns a payment URL, redirect
       if (result.payment_url) {
         window.location.href = result.payment_url;
       } else {
-        // Wait for webhook / USSD confirmation
-        // In production: poll for status or use WebSocket
-        setTimeout(() => {
-          setStep("success");
-        }, 5000);
+        setTimeout(() => { setStep("success"); }, 5000);
       }
     } catch {
       setStep("error");
@@ -232,7 +256,7 @@ function PaymentContent() {
             )}
           >
             {plan.badge && (
-              <span className="absolute -top-2 right-3 rounded-full bg-accent-500 px-2.5 py-0.5 text-xs font-bold text-white">
+              <span className={`absolute -top-2 right-3 rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${plan.badgeColor ?? "bg-accent-500"}`}>
                 {plan.badge}
               </span>
             )}
@@ -270,37 +294,50 @@ function PaymentContent() {
         ))}
       </div>
 
-      {/* Orange Money */}
-      <div className="mt-6">
-        <h3 className="text-sm font-semibold text-gray-700">
-          Paiement Orange Money
-        </h3>
-        <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-4">
+      {IS_MOCK ? (
+        /* ── Mode test ── */
+        <div className="mt-6 rounded-xl border-2 border-dashed border-violet-300 bg-violet-50 p-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500">
-              <Phone size={16} className="text-white" />
-            </div>
-            <span className="text-sm font-medium text-orange-800">
-              Orange Money
-            </span>
+            <FlaskConical size={16} className="text-violet-500" />
+            <span className="text-sm font-semibold text-violet-700">Mode test activé</span>
           </div>
-          <div className="mt-3">
-            <label className="mb-1 block text-xs text-gray-600">
-              Numero Orange Money
-            </label>
-            <input
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="+223 7X XX XX XX"
-              className="input"
-            />
-          </div>
-          <p className="mt-2 text-xs text-gray-500">
-            Vous recevrez une demande de confirmation sur votre telephone.
+          <p className="mt-1 text-xs text-violet-500">
+            Le paiement sera simulé instantanément — aucun débit réel.
           </p>
         </div>
-      </div>
+      ) : (
+        /* ── Mode production : Orange Money ── */
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-gray-700">
+            Paiement Orange Money
+          </h3>
+          <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500">
+                <Phone size={16} className="text-white" />
+              </div>
+              <span className="text-sm font-medium text-orange-800">
+                Orange Money
+              </span>
+            </div>
+            <div className="mt-3">
+              <label className="mb-1 block text-xs text-gray-600">
+                Numero Orange Money
+              </label>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+223 7X XX XX XX"
+                className="input"
+              />
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Vous recevrez une demande de confirmation sur votre telephone.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Summary + CTA */}
       <div className="mt-6 rounded-xl bg-gray-50 p-4">
@@ -310,18 +347,29 @@ function PaymentContent() {
         </div>
       </div>
 
-      <button
-        onClick={handlePayment}
-        disabled={loading || !phoneNumber}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-orange-600 active:scale-[0.98] disabled:opacity-50"
-      >
-        <Phone size={18} />
-        Payer {formatPrice(currentPlan.price)} via Orange Money
-      </button>
+      {IS_MOCK ? (
+        <button
+          onClick={handlePayment}
+          disabled={loading}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-500 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-violet-600 active:scale-[0.98] disabled:opacity-50"
+        >
+          {loading ? <Loader2 size={18} className="animate-spin" /> : <FlaskConical size={18} />}
+          Simuler le paiement ({formatPrice(currentPlan.price)})
+        </button>
+      ) : (
+        <button
+          onClick={handlePayment}
+          disabled={loading || !phoneNumber}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-orange-600 active:scale-[0.98] disabled:opacity-50"
+        >
+          <Phone size={18} />
+          Payer {formatPrice(currentPlan.price)} via Orange Money
+        </button>
+      )}
 
       <p className="mt-3 text-center text-xs text-gray-400">
         <Shield size={12} className="mr-1 inline" />
-        Paiement securise. En cliquant, vous acceptez les CGU.
+        {IS_MOCK ? "Mode test — aucune transaction réelle" : "Paiement securise. En cliquant, vous acceptez les CGU."}
       </p>
     </div>
   );

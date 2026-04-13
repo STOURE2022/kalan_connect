@@ -19,6 +19,29 @@ class BookingSerializer(serializers.ModelSerializer):
         source="teacher.user.get_full_name",
         read_only=True,
     )
+    teacher_user_id = serializers.IntegerField(
+        source="teacher.user.id",
+        read_only=True,
+    )
+    teacher_phone = serializers.CharField(
+        source="teacher.user.phone",
+        read_only=True,
+    )
+    teacher_city = serializers.CharField(
+        source="teacher.user.city",
+        read_only=True,
+        default=None,
+    )
+    teacher_avatar = serializers.SerializerMethodField()
+
+    def get_teacher_avatar(self, obj):
+        request = self.context.get("request")
+        avatar = obj.teacher.user.avatar
+        if not avatar:
+            return None
+        if request:
+            return request.build_absolute_uri(avatar.url)
+        return avatar.url
     subject_name = serializers.CharField(
         source="subject.name",
         read_only=True,
@@ -29,7 +52,11 @@ class BookingSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "teacher",
+            "teacher_user_id",
             "teacher_name",
+            "teacher_phone",
+            "teacher_city",
+            "teacher_avatar",
             "parent",
             "subject",
             "subject_name",

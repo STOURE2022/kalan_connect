@@ -1,34 +1,39 @@
 "use client";
 
-import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Suspense, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { bookings as bookingsApi } from "@/lib/api";
 import StarRating from "@/components/ui/StarRating";
 import toast from "react-hot-toast";
 
-export default function ReviewPage() {
+function ReviewForm() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const teacherId = Number(params.id);
+  const bookingId = Number(searchParams.get("booking") ?? "0");
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // bookingId is passed as query param
-  const teacherId = Number(params.id);
-
   const handleSubmit = async () => {
     if (rating === 0) {
       toast.error("Choisissez une note");
+      return;
+    }
+    if (!bookingId) {
+      toast.error("Réservation introuvable");
       return;
     }
     setLoading(true);
     try {
       await bookingsApi.createReview({
         teacher: teacherId,
-        booking: 0, // TODO: pass real booking ID
+        booking: bookingId,
         rating,
         comment,
       });
@@ -105,5 +110,17 @@ export default function ReviewPage() {
         {loading ? "Envoi..." : "Envoyer l'avis"}
       </button>
     </div>
+  );
+}
+
+export default function ReviewPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-primary-500" />
+      </div>
+    }>
+      <ReviewForm />
+    </Suspense>
   );
 }

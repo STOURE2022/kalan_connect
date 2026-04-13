@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Phone, Lock, Eye, EyeOff } from "lucide-react";
@@ -10,19 +10,30 @@ import { ApiError } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, isLoggedIn, loading: authLoading, user } = useAuth();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const getDashboard = (role: string) =>
+    role === "teacher" ? "/dashboard/teacher"
+    : role === "admin"   ? "/dashboard/admin"
+    : "/dashboard";
+
+  useEffect(() => {
+    if (!authLoading && isLoggedIn && user) {
+      router.replace(getDashboard(user.role));
+    }
+  }, [authLoading, isLoggedIn, user, router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(phone, password);
+      const user = await login(phone, password);
       toast.success("Connexion reussie !");
-      router.push("/");
+      router.push(getDashboard(user.role));
     } catch (err) {
       if (err instanceof ApiError) {
         toast.error("Telephone ou mot de passe incorrect");
@@ -53,7 +64,7 @@ export default function LoginPage() {
           {/* Phone */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Numero de telephone
+              Numéro de téléphone
             </label>
             <div className="relative">
               <Phone
