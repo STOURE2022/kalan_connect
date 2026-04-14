@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { sessions as sessionsApi, teachers as teachersApi } from "@/lib/api";
 import Avatar from "@/components/ui/Avatar";
-import type { GroupSession, Subject } from "@/types";
+import type { GroupSession, PaginatedResponse, Subject } from "@/types";
 
 const STATUS_CONFIG = {
   open:      { label: "Ouvert",  bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" },
@@ -181,7 +181,7 @@ export default function EventsPage() {
       price:         (filters.price as "free" | "paid") || undefined,
       date:          (filters.date as "today" | "week" | "upcoming") || undefined,
     })
-      .then((r) => { setItems(r.results ?? []); setTotal(r.count ?? 0); })
+      .then((r: PaginatedResponse<GroupSession>) => { setItems(r.results ?? []); setTotal(r.count ?? 0); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [filters]);
