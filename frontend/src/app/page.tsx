@@ -13,7 +13,7 @@ import {
 import { search as searchApi, teachers as teachersApi, sessions as sessionsApi } from "@/lib/api";
 import Avatar from "@/components/ui/Avatar";
 import TeacherCard from "@/components/teachers/TeacherCard";
-import type { Subject, TeacherListItem, GroupSession } from "@/types";
+import type { Subject, TeacherListItem, GroupSession, PaginatedResponse } from "@/types";
 
 const CITIES = ["Bamako", "Sikasso", "Ségou", "Mopti", "Kayes", "Gao"];
 
@@ -59,13 +59,13 @@ export default function HomePage() {
   useEffect(() => {
     searchApi.popular(city).then(setPopularSubjects).catch(() => {});
     teachersApi.search({ city, page: 1 })
-      .then((res) => setFeaturedTeachers((res.results ?? []).slice(0, 3)))
+      .then((res: PaginatedResponse<TeacherListItem>) => setFeaturedTeachers((res.results ?? []).slice(0, 3)))
       .catch(() => {});
   }, [city]);
 
   useEffect(() => {
     sessionsApi.list({ status: "open" })
-      .then((res) => setUpcomingSessions((res.results ?? []).slice(0, 3)))
+      .then((res: PaginatedResponse<GroupSession>) => setUpcomingSessions((res.results ?? []).slice(0, 3)))
       .catch(() => {});
   }, []);
 
