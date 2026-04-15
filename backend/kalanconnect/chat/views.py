@@ -192,7 +192,7 @@ class NotificationListView(generics.ListAPIView):
     serializer_class = NotificationSerializer
 
     def get_queryset(self):
-        return AppNotification.objects.filter(user=self.request.user)
+        return AppNotification.objects.filter(user=self.request.user).order_by("-created_at")
 
 
 class NotificationMarkReadView(APIView):

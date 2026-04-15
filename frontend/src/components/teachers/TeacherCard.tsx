@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, CheckCircle2, Monitor, Home, Users, Star, Trophy, BookOpen, Clock } from "lucide-react";
+import { MapPin, CheckCircle2, Monitor, Home, Users, Star, Trophy, BookOpen } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import { formatPrice } from "@/lib/utils";
 import type { TeacherListItem } from "@/types";
@@ -22,8 +22,8 @@ export default function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
       <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary-200 hover:shadow-lg hover:shadow-primary-500/10">
 
         {/* ── Zone photo ── */}
-        <div className="relative bg-gradient-to-br from-primary-50 via-primary-100/60 to-emerald-50 px-5 pt-6 pb-4">
-          {/* Badges Top / Concours */}
+        <div className="relative bg-gradient-to-br from-primary-50 via-primary-100/60 to-emerald-50 px-5 pt-5 pb-4">
+          {/* Badges */}
           <div className="absolute right-3 top-3 flex flex-col gap-1">
             {teacher.is_featured && (
               <span className="flex items-center gap-0.5 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
@@ -37,7 +37,7 @@ export default function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
             )}
           </div>
 
-          {/* Photo centrée */}
+          {/* Photo + nom */}
           <div className="flex flex-col items-center gap-2">
             <div className="relative">
               <Avatar
@@ -53,28 +53,18 @@ export default function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
                 </div>
               )}
             </div>
-
-            {/* Nom */}
-            <div className="text-center">
-              <h3 className="text-sm font-bold text-gray-900 transition-colors group-hover:text-primary-600">
-                {teacher.user.first_name} {teacher.user.last_name}
-              </h3>
-              {teacher.experience_years > 0 && (
-                <p className="flex items-center justify-center gap-1 text-[11px] text-gray-400 mt-0.5">
-                  <Clock size={10} />
-                  {teacher.experience_years} an{teacher.experience_years > 1 ? "s" : ""} d&apos;expérience
-                </p>
-              )}
-            </div>
+            <h3 className="text-sm font-bold text-gray-900 text-center transition-colors group-hover:text-primary-600">
+              {teacher.user.first_name} {teacher.user.last_name}
+            </h3>
           </div>
         </div>
 
-        {/* ── Infos ── */}
-        <div className="flex flex-1 flex-col gap-3 px-4 py-4">
+        {/* ── Corps ── */}
+        <div className="flex flex-1 flex-col gap-2.5 px-4 py-3">
 
-          {/* Matières */}
+          {/* Matières (max 2) */}
           <div className="flex flex-wrap justify-center gap-1">
-            {teacher.subjects.slice(0, 3).map((s, i) => (
+            {teacher.subjects.slice(0, 2).map((s, i) => (
               <span
                 key={s}
                 className={`rounded-lg px-2.5 py-0.5 text-xs font-semibold ${SUBJECT_COLORS[i % SUBJECT_COLORS.length]}`}
@@ -82,46 +72,39 @@ export default function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
                 {s}
               </span>
             ))}
-            {teacher.subjects.length > 3 && (
+            {teacher.subjects.length > 2 && (
               <span className="rounded-lg bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-500">
-                +{teacher.subjects.length - 3}
+                +{teacher.subjects.length - 2}
               </span>
             )}
           </div>
 
-          {/* Bio */}
-          {teacher.bio && (
-            <p className="line-clamp-2 text-center text-xs leading-relaxed text-gray-500">
-              {teacher.bio}
-            </p>
-          )}
-
-          {/* Localisation */}
+          {/* Localisation + distance */}
           <p className="flex items-center justify-center gap-1 text-xs text-gray-400">
-            <MapPin size={11} className="flex-shrink-0 text-gray-300" />
-            <span className="truncate">{teacher.neighborhood}, {teacher.city}</span>
+            <MapPin size={10} className="flex-shrink-0 text-gray-300" />
+            <span className="truncate">{teacher.city}</span>
             {teacher.distance_km != null && (
-              <span className="ml-1 flex-shrink-0 rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-600">
+              <span className="flex-shrink-0 rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-600">
                 {teacher.distance_km.toFixed(1)} km
               </span>
             )}
           </p>
 
-          {/* Modes d'enseignement */}
-          <div className="flex flex-wrap justify-center gap-1">
+          {/* Modes — icônes seulement */}
+          <div className="flex justify-center gap-3">
             {teacher.teaches_online && (
-              <span className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
-                <Monitor size={10} /> En ligne
+              <span title="En ligne" className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-500">
+                <Monitor size={13} />
               </span>
             )}
             {teacher.teaches_at_home && (
-              <span className="flex items-center gap-1 rounded-lg bg-primary-50 px-2 py-0.5 text-[11px] font-semibold text-primary-600">
-                <Home size={10} /> À domicile
+              <span title="À domicile" className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-50 text-primary-500">
+                <Home size={13} />
               </span>
             )}
             {teacher.teaches_at_student && (
-              <span className="flex items-center gap-1 rounded-lg bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-600">
-                <Users size={10} /> Chez l&apos;élève
+              <span title="Chez l'élève" className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 text-purple-500">
+                <Users size={13} />
               </span>
             )}
           </div>
@@ -133,15 +116,7 @@ export default function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
           <div className="flex items-center gap-1">
             {hasRating ? (
               <>
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Star
-                      key={i}
-                      size={11}
-                      className={i <= Math.round(teacher.avg_rating) ? "fill-amber-400 text-amber-400" : "fill-gray-100 text-gray-200"}
-                    />
-                  ))}
-                </div>
+                <Star size={12} className="fill-amber-400 text-amber-400" />
                 <span className="text-xs font-bold text-gray-700">{teacher.avg_rating.toFixed(1)}</span>
                 <span className="text-[10px] text-gray-400">({teacher.total_reviews})</span>
               </>

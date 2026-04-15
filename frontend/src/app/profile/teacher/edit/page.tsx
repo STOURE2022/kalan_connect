@@ -26,7 +26,10 @@ interface FileState {
   file: File | null;
   preview: string | null;   // object URL (image) or null
   existing: string | null;  // URL already on server
+  cleared: boolean;         // user explicitly removed an existing doc
 }
+
+type DocAlert = "missing" | "rejected" | null;
 
 function DocUploadField({
   label,
@@ -35,6 +38,9 @@ function DocUploadField({
   value,
   onChange,
   required,
+  alert,
+  isVerified,
+  onDeleteRequest,
 }: {
   label: string;
   hint: string;
@@ -42,6 +48,9 @@ function DocUploadField({
   value: FileState;
   onChange: (s: FileState) => void;
   required?: boolean;
+  alert?: DocAlert;
+  isVerified?: boolean;
+  onDeleteRequest?: () => void;  // appelé à la place de clear() si profil vérifié
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const isImage = value.file?.type.startsWith("image/") || (value.existing && /\.(jpg|jpeg|png|webp)$/i.test(value.existing));
@@ -50,40 +59,71 @@ function DocUploadField({
     const file = e.target.files?.[0];
     if (!file) return;
     const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
-    onChange({ file, preview, existing: value.existing });
+    onChange({ file, preview, existing: value.existing, cleared: false });
     e.target.value = "";
   };
 
   const clear = () => {
+    // Si le profil est vérifié et qu'un fichier serveur existe → demander confirmation
+    if (isVerified && value.existing && onDeleteRequest) {
+      onDeleteRequest();
+      return;
+    }
     if (value.preview) URL.revokeObjectURL(value.preview);
-    onChange({ file: null, preview: null, existing: null });
+    onChange({ file: null, preview: null, existing: null, cleared: true });
   };
 
   const hasDoc = value.file || value.existing;
 
+  const alertBanner = alert === "missing" ? (
+    <div className="mb-2 flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-1.5">
+      <AlertCircle size={12} className="flex-shrink-0 text-red-500" />
+      <p className="text-[11px] font-semibold text-red-600">Document manquant — veuillez fournir ce fichier</p>
+    </div>
+  ) : alert === "rejected" ? (
+    <div className="mb-2 flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
+      <AlertCircle size={12} className="flex-shrink-0 text-amber-500" />
+      <p className="text-[11px] font-semibold text-amber-600">Document refusé — veuillez le remplacer</p>
+    </div>
+  ) : null;
+
+  const borderColor = alert === "missing"
+    ? "border-red-300 bg-red-50"
+    : alert === "rejected"
+    ? "border-amber-300 bg-amber-50"
+    : hasDoc
+    ? "border-green-200 bg-green-50"
+    : "";
+
   return (
     <div>
-      <label className="mb-1 flex items-center gap-1 text-xs font-medium text-gray-600">
-        {label}
-        {required && <span className="text-red-400">*</span>}
-      </label>
-      <p className="mb-2 text-[11px] text-gray-400">{hint}</p>
+      {label && (
+        <label className="mb-1 flex items-center gap-1 text-xs font-medium text-gray-600">
+          {label}
+          {required && <span className="text-red-400">*</span>}
+        </label>
+      )}
+      {hint && <p className="mb-2 text-[11px] text-gray-400">{hint}</p>}
+      {alertBanner}
 
       {hasDoc ? (
-        <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-3 py-2.5">
-          <CheckCircle2 size={16} className="flex-shrink-0 text-green-500" />
+        <div className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${borderColor}`}>
+          {alert === "rejected"
+            ? <AlertCircle size={16} className="flex-shrink-0 text-amber-500" />
+            : <CheckCircle2 size={16} className="flex-shrink-0 text-green-500" />
+          }
           <div className="flex-1 min-w-0">
             {isImage && (value.preview || value.existing) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={(value.preview || value.existing)!}
                 alt="aperçu"
-                className="h-12 w-20 rounded-lg object-cover"
+                className={`h-12 w-20 rounded-lg object-cover ${alert === "rejected" ? "ring-2 ring-amber-400" : ""}`}
               />
             ) : (
               <div className="flex items-center gap-2">
-                <FileText size={14} className="text-green-600" />
-                <span className="text-xs font-medium text-green-700 truncate">
+                <FileText size={14} className={alert === "rejected" ? "text-amber-600" : "text-green-600"} />
+                <span className={`text-xs font-medium truncate ${alert === "rejected" ? "text-amber-700" : "text-green-700"}`}>
                   {value.file?.name ?? "Document enregistré"}
                 </span>
               </div>
@@ -95,7 +135,7 @@ function DocUploadField({
                 href={value.existing}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] text-green-600 underline"
+                className={`text-[11px] underline ${alert === "rejected" ? "text-amber-600" : "text-green-600"}`}
               >
                 Voir
               </a>
@@ -113,7 +153,11 @@ function DocUploadField({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-xs font-medium text-gray-400 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+          className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-4 text-xs font-medium transition-colors ${
+            alert === "missing"
+              ? "border-red-300 bg-red-50 text-red-500 hover:border-red-400 hover:bg-red-100"
+              : "border-gray-200 bg-gray-50 text-gray-400 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600"
+          }`}
         >
           <Upload size={15} />
           Choisir un fichier
@@ -158,16 +202,24 @@ export default function TeacherEditPage() {
     teaches_online: false,
     teaches_at_home: true,
     teaches_at_student: false,
-    subject_ids: [] as number[],
-    level_ids: [] as number[],
+    subject_levels: [] as { subject_id: number; level_ids: number[] }[],
     identity_document_type: "",
   });
 
-  const [photoDoc, setPhotoDoc]     = useState<FileState>({ file: null, preview: null, existing: null });
-  const [identityDoc, setIdentityDoc] = useState<FileState>({ file: null, preview: null, existing: null });
-  const [cvDoc, setCvDoc]           = useState<FileState>({ file: null, preview: null, existing: null });
+  const [photoDoc, setPhotoDoc]     = useState<FileState>({ file: null, preview: null, existing: null, cleared: false });
+  const [identityDoc, setIdentityDoc] = useState<FileState>({ file: null, preview: null, existing: null, cleared: false });
+  const [cvDoc, setCvDoc]           = useState<FileState>({ file: null, preview: null, existing: null, cleared: false });
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoCoords, setGeoCoords]   = useState<{ lat: number; lng: number } | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
+  // Dialog de confirmation avant suppression d'un doc sur profil vérifié
+  const [confirmClear, setConfirmClear] = useState<{
+    field: "photo" | "identity" | "cv";
+    label: string;
+    doDelete: () => void;
+  } | null>(null);
+  // Docs signalés par l'admin (depuis la dernière notif de rejet)
+  const [docProblems, setDocProblems] = useState<{ missing: string[]; rejected: string[] }>({ missing: [], rejected: [] });
 
   useEffect(() => {
     if (!loading && (!isLoggedIn || !isTeacher)) router.push("/auth/login");
@@ -183,14 +235,20 @@ export default function TeacherEditPage() {
       .then((r) => { if (r.ok) return r.json(); throw new Error(); })
       .then((data) => {
         setProfileExists(true);
-        const subjectIds: number[] = [];
-        const levelIds: number[] = [];
+        setIsVerified(data.is_verified ?? false);
+        // Construire le mapping subject_id → level_ids depuis teacher_subjects
+        const slMap: Record<number, number[]> = {};
         if (Array.isArray(data.teacher_subjects)) {
           for (const ts of data.teacher_subjects) {
-            if (ts.subject?.id && !subjectIds.includes(ts.subject.id)) subjectIds.push(ts.subject.id);
-            if (ts.level?.id && !levelIds.includes(ts.level.id)) levelIds.push(ts.level.id);
+            if (!ts.subject?.id) continue;
+            if (!slMap[ts.subject.id]) slMap[ts.subject.id] = [];
+            if (ts.level?.id && !slMap[ts.subject.id].includes(ts.level.id))
+              slMap[ts.subject.id].push(ts.level.id);
           }
         }
+        const subject_levels = Object.entries(slMap).map(([sid, lids]) => ({
+          subject_id: Number(sid), level_ids: lids,
+        }));
         setForm((p) => ({
           ...p,
           bio: data.bio ?? "",
@@ -201,8 +259,7 @@ export default function TeacherEditPage() {
           teaches_online: data.teaches_online ?? false,
           teaches_at_home: data.teaches_at_home ?? true,
           teaches_at_student: data.teaches_at_student ?? false,
-          subject_ids: subjectIds,
-          level_ids: levelIds,
+          subject_levels,
           identity_document_type: data.identity_document_type ?? "",
         }));
         // Existing files
@@ -218,12 +275,59 @@ export default function TeacherEditPage() {
 
     teachersApi.getSubjects().then(setSubjects).catch(() => {});
     teachersApi.getLevels().then(setLevels).catch(() => {});
+
+    // Récupérer la dernière notif de rejet admin pour afficher les docs problématiques
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        const notifs: { type: string; title: string; data: Record<string, unknown> }[] =
+          Array.isArray(data) ? data : (data?.results ?? []);
+        // Notifications sont déjà triées du plus récent au plus ancien (backend order_by -created_at)
+        // On cherche la première notif système liée à une décision admin
+        const lastDecision = notifs.find(
+          (n) => n.type === "system" && n.data?.teacher_id !== undefined
+        );
+        // Si la dernière décision est un refus avec des docs signalés, on les affiche
+        if (
+          lastDecision &&
+          lastDecision.title !== "Profil vérifié !" &&
+          (Array.isArray(lastDecision.data.missing_docs) || Array.isArray(lastDecision.data.rejected_docs))
+        ) {
+          setDocProblems({
+            missing:  (lastDecision.data.missing_docs  as string[]) ?? [],
+            rejected: (lastDecision.data.rejected_docs as string[]) ?? [],
+          });
+        }
+      })
+      .catch(() => {});
   }, [isLoggedIn]);
 
   if (loading) return <PageLoader />;
 
-  const toggleId = (arr: number[], id: number) =>
-    arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
+  const toggleSubject = (subjectId: number) => {
+    setForm((p) => {
+      const exists = p.subject_levels.some((sl) => sl.subject_id === subjectId);
+      return {
+        ...p,
+        subject_levels: exists
+          ? p.subject_levels.filter((sl) => sl.subject_id !== subjectId)
+          : [...p.subject_levels, { subject_id: subjectId, level_ids: [] }],
+      };
+    });
+  };
+
+  const toggleLevel = (subjectId: number, levelId: number) => {
+    setForm((p) => ({
+      ...p,
+      subject_levels: p.subject_levels.map((sl) => {
+        if (sl.subject_id !== subjectId) return sl;
+        const has = sl.level_ids.includes(levelId);
+        return { ...sl, level_ids: has ? sl.level_ids.filter((id) => id !== levelId) : [...sl.level_ids, levelId] };
+      }),
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,12 +346,16 @@ export default function TeacherEditPage() {
       fd.append("teaches_at_home", String(form.teaches_at_home));
       fd.append("teaches_at_student", String(form.teaches_at_student));
       fd.append("identity_document_type", form.identity_document_type);
-      form.subject_ids.forEach((id) => fd.append("subject_ids", String(id)));
-      form.level_ids.forEach((id) => fd.append("level_ids", String(id)));
+      fd.append("subject_levels", JSON.stringify(form.subject_levels));
 
-      if (photoDoc.file)    fd.append("photo", photoDoc.file);
-      if (identityDoc.file) fd.append("identity_document", identityDoc.file);
-      if (cvDoc.file)       fd.append("cv", cvDoc.file);
+      if (photoDoc.file)         fd.append("photo", photoDoc.file);
+      else if (photoDoc.cleared) fd.append("clear_photo", "1");
+
+      if (identityDoc.file)         fd.append("identity_document", identityDoc.file);
+      else if (identityDoc.cleared) fd.append("clear_identity_document", "1");
+
+      if (cvDoc.file)        fd.append("cv", cvDoc.file);
+      else if (cvDoc.cleared) fd.append("clear_cv", "1");
       if (geoCoords) {
         fd.append("latitude", String(geoCoords.lat));
         fd.append("longitude", String(geoCoords.lng));
@@ -263,6 +371,7 @@ export default function TeacherEditPage() {
       if (!res.ok) throw new Error(await res.text());
       toast.success(profileExists ? "Profil mis à jour !" : "Profil créé !");
       setProfileExists(true);
+      setDocProblems({ missing: [], rejected: [] });
       router.push("/profile");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur inconnue";
@@ -449,17 +558,21 @@ export default function TeacherEditPage() {
           </div>
         </div>
 
-        {/* Matières */}
+        {/* Matières & Niveaux */}
         {subjects.length > 0 && (
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <h2 className="mb-1 text-sm font-bold text-gray-700">Matières enseignées</h2>
-            <p className="mb-3 text-xs text-gray-400">Sélectionnez toutes les matières que vous enseignez</p>
-            <div className="flex flex-wrap gap-2">
+            <h2 className="mb-1 text-sm font-bold text-gray-700">Matières &amp; Niveaux</h2>
+            <p className="mb-3 text-xs text-gray-400">
+              Sélectionnez vos matières, puis les niveaux pour chacune
+            </p>
+
+            {/* Chips matières */}
+            <div className="flex flex-wrap gap-2 mb-4">
               {subjects.map((s) => {
-                const active = form.subject_ids.includes(s.id);
+                const active = form.subject_levels.some((sl) => sl.subject_id === s.id);
                 return (
                   <button key={s.id} type="button"
-                    onClick={() => setForm((p) => ({ ...p, subject_ids: toggleId(p.subject_ids, s.id) }))}
+                    onClick={() => toggleSubject(s.id)}
                     className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${active ? "border-primary-300 bg-primary-500 text-white shadow-sm" : "border-gray-200 bg-white text-gray-500 hover:border-primary-200 hover:text-primary-600"}`}
                   >
                     {s.name}
@@ -467,27 +580,37 @@ export default function TeacherEditPage() {
                 );
               })}
             </div>
-          </div>
-        )}
 
-        {/* Niveaux */}
-        {levels.length > 0 && (
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <h2 className="mb-1 text-sm font-bold text-gray-700">Niveaux</h2>
-            <p className="mb-3 text-xs text-gray-400">Quels niveaux pouvez-vous encadrer ?</p>
-            <div className="flex flex-wrap gap-2">
-              {levels.map((l) => {
-                const active = form.level_ids.includes(l.id);
-                return (
-                  <button key={l.id} type="button"
-                    onClick={() => setForm((p) => ({ ...p, level_ids: toggleId(p.level_ids, l.id) }))}
-                    className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${active ? "border-indigo-300 bg-indigo-500 text-white shadow-sm" : "border-gray-200 bg-white text-gray-500 hover:border-indigo-200 hover:text-indigo-600"}`}
-                  >
-                    {l.name}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Niveaux par matière */}
+            {form.subject_levels.length > 0 && (
+              <div className="space-y-3 border-t border-gray-50 pt-4">
+                {form.subject_levels.map((sl) => {
+                  const subject = subjects.find((s) => s.id === sl.subject_id);
+                  if (!subject) return null;
+                  return (
+                    <div key={sl.subject_id} className="rounded-xl bg-gray-50 p-3">
+                      <p className="mb-2 text-xs font-bold text-primary-600">{subject.name}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {levels.map((l) => {
+                          const active = sl.level_ids.includes(l.id);
+                          return (
+                            <button key={l.id} type="button"
+                              onClick={() => toggleLevel(sl.subject_id, l.id)}
+                              className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-all ${active ? "border-indigo-300 bg-indigo-500 text-white" : "border-gray-200 bg-white text-gray-500 hover:border-indigo-200 hover:text-indigo-600"}`}
+                            >
+                              {l.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {sl.level_ids.length === 0 && (
+                        <p className="mt-1 text-[11px] text-amber-500">Sélectionnez au moins un niveau</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -508,6 +631,17 @@ export default function TeacherEditPage() {
               </span>
             )}
           </div>
+          {(docProblems.missing.length > 0 || docProblems.rejected.length > 0) && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-3 py-3">
+              <AlertCircle size={14} className="flex-shrink-0 text-red-500 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-red-700">Votre profil a été refusé</p>
+                <p className="text-[11px] text-red-600 mt-0.5">
+                  Corrigez les documents marqués ci-dessous, puis enregistrez votre profil pour soumettre à nouveau.
+                </p>
+              </div>
+            </div>
+          )}
           <p className="mb-5 text-xs text-gray-400 leading-relaxed">
             Ces documents sont nécessaires pour que votre profil soit vérifié par notre équipe.
             Formats acceptés : JPG, PNG, PDF.
@@ -522,33 +656,76 @@ export default function TeacherEditPage() {
               value={photoDoc}
               onChange={setPhotoDoc}
               required
+              alert={
+                docProblems.missing.includes("photo") ? "missing"
+                : docProblems.rejected.includes("photo") ? "rejected"
+                : null
+              }
+              isVerified={isVerified}
+              onDeleteRequest={() => setConfirmClear({
+                field: "photo",
+                label: "photo de profil",
+                doDelete: () => {
+                  if (photoDoc.preview) URL.revokeObjectURL(photoDoc.preview);
+                  setPhotoDoc({ file: null, preview: null, existing: null, cleared: true });
+                },
+              })}
             />
 
             {/* Pièce d'identité */}
-            <div className="space-y-2">
-              <label className="flex items-center gap-1 text-xs font-medium text-gray-600">
-                Pièce d&apos;identité <span className="text-red-400">*</span>
-              </label>
-              <p className="text-[11px] text-gray-400">Scan lisible recto-verso (carte NINA, passeport ou CNI)</p>
-              <select
-                value={form.identity_document_type}
-                onChange={(e) => setForm((p) => ({ ...p, identity_document_type: e.target.value }))}
-                className="input text-sm mb-2"
-              >
-                <option value="">— Choisir le type de document —</option>
-                {ID_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-              <DocUploadField
-                label=""
-                hint=""
-                accept="image/*,application/pdf"
-                value={identityDoc}
-                onChange={setIdentityDoc}
-                required
-              />
-            </div>
+            {(() => {
+              const identityAlert: DocAlert = docProblems.missing.includes("identity") ? "missing"
+                : docProblems.rejected.includes("identity") ? "rejected"
+                : null;
+              return (
+                <div className={`space-y-2 rounded-xl p-3 -mx-3 ${identityAlert === "missing" ? "bg-red-50" : identityAlert === "rejected" ? "bg-amber-50" : ""}`}>
+                  <label className="flex items-center gap-1 text-xs font-medium text-gray-600">
+                    Pièce d&apos;identité <span className="text-red-400">*</span>
+                  </label>
+                  <p className="text-[11px] text-gray-400">Scan lisible recto-verso (carte NINA, passeport ou CNI)</p>
+                  {identityAlert === "missing" && (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-1.5">
+                      <AlertCircle size={12} className="flex-shrink-0 text-red-500" />
+                      <p className="text-[11px] font-semibold text-red-600">Document manquant — veuillez fournir ce fichier</p>
+                    </div>
+                  )}
+                  {identityAlert === "rejected" && (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
+                      <AlertCircle size={12} className="flex-shrink-0 text-amber-500" />
+                      <p className="text-[11px] font-semibold text-amber-600">Document refusé — veuillez le remplacer</p>
+                    </div>
+                  )}
+                  <select
+                    value={form.identity_document_type}
+                    onChange={(e) => setForm((p) => ({ ...p, identity_document_type: e.target.value }))}
+                    className={`input text-sm mb-2 ${identityAlert === "missing" ? "border-red-300" : identityAlert === "rejected" ? "border-amber-300" : ""}`}
+                  >
+                    <option value="">— Choisir le type de document —</option>
+                    {ID_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                  <DocUploadField
+                    label=""
+                    hint=""
+                    accept="image/*,application/pdf"
+                    value={identityDoc}
+                    onChange={setIdentityDoc}
+                    required
+                    alert={identityAlert}
+                    isVerified={isVerified}
+                    onDeleteRequest={() => setConfirmClear({
+                      field: "identity",
+                      label: "pièce d'identité",
+                      doDelete: () => {
+                        if (identityDoc.preview) URL.revokeObjectURL(identityDoc.preview);
+                        setIdentityDoc({ file: null, preview: null, existing: null, cleared: true });
+                      },
+                    })}
+                  />
+                </div>
+              );
+            })()}
 
             {/* CV */}
             <DocUploadField
@@ -558,7 +735,38 @@ export default function TeacherEditPage() {
               value={cvDoc}
               onChange={setCvDoc}
               required
+              alert={
+                docProblems.missing.includes("cv") ? "missing"
+                : docProblems.rejected.includes("cv") ? "rejected"
+                : null
+              }
+              isVerified={isVerified}
+              onDeleteRequest={() => setConfirmClear({
+                field: "cv",
+                label: "CV",
+                doDelete: () => {
+                  if (cvDoc.preview) URL.revokeObjectURL(cvDoc.preview);
+                  setCvDoc({ file: null, preview: null, existing: null, cleared: true });
+                },
+              })}
             />
+
+            {/* Note diplômes — alerte si manquant/refusé */}
+            {(docProblems.missing.includes("diploma") || docProblems.rejected.includes("diploma")) && (
+              <div className={`flex items-center gap-1.5 rounded-xl border px-3 py-2.5 ${
+                docProblems.missing.includes("diploma")
+                  ? "bg-red-50 border-red-200"
+                  : "bg-amber-50 border-amber-200"
+              }`}>
+                <AlertCircle size={13} className={`flex-shrink-0 ${docProblems.missing.includes("diploma") ? "text-red-500" : "text-amber-500"}`} />
+                <p className={`text-[11px] font-semibold ${docProblems.missing.includes("diploma") ? "text-red-600" : "text-amber-600"}`}>
+                  {docProblems.missing.includes("diploma")
+                    ? "Aucun diplôme avec scan — ajoutez-en un dans \"Mes diplômes\""
+                    : "Scan de diplôme refusé — veuillez le remplacer dans \"Mes diplômes\""
+                  }
+                </p>
+              </div>
+            )}
 
             {/* Note diplômes */}
             <div className="flex items-start gap-2 rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2.5">
@@ -577,6 +785,43 @@ export default function TeacherEditPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Dialog confirmation suppression doc vérifié ── */}
+        {confirmClear && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-red-100">
+                  <AlertCircle size={20} className="text-red-500" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 text-sm">Supprimer ce document ?</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Votre <span className="font-semibold">{confirmClear.label}</span> est un document de vérification.
+                    Le supprimer retirera votre badge <span className="font-semibold text-primary-600">Vérifié</span> et
+                    votre profil sera soumis à nouveau pour révision.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmClear(null)}
+                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { confirmClear.doDelete(); setConfirmClear(null); }}
+                  className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-bold text-white hover:bg-red-600 transition-colors"
+                >
+                  Supprimer quand même
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Photo via icon reminder si pas de doc upload */}
         <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 flex items-center gap-2">

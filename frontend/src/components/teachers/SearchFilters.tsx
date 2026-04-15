@@ -38,7 +38,7 @@ export default function SearchFilters({ filters, onChange }: SearchFiltersProps)
 
   const enableGeo = () => {
     if (!navigator.geolocation) {
-      alert("La géolocalisation n'est pas supportée par votre navigateur.");
+      alert("⚠️ La géolocalisation n'est pas supportée par votre navigateur.");
       return;
     }
     setGeoLoading(true);
@@ -56,7 +56,7 @@ export default function SearchFilters({ filters, onChange }: SearchFiltersProps)
         setGeoLoading(false);
       },
       () => {
-        alert("Impossible d'obtenir votre position. Vérifiez les permissions de localisation.");
+        alert("⚠️ Impossible d'obtenir votre position. Vérifiez les permissions de localisation de votre appareil.");
         setGeoLoading(false);
       },
       { timeout: 8000, maximumAge: 60_000 }
@@ -88,7 +88,7 @@ export default function SearchFilters({ filters, onChange }: SearchFiltersProps)
         {geoActive ? (
           <div className="flex items-center gap-1.5 rounded-xl border border-primary-300 bg-primary-50 px-3 py-2 text-sm font-semibold text-primary-700">
             <LocateFixed size={14} className="text-primary-500" />
-            <span>Près de moi</span>
+            <span>Près de moi 📍</span>
             <span className="text-primary-400">·</span>
             <select
               value={currentRadius}
@@ -265,8 +265,8 @@ export default function SearchFilters({ filters, onChange }: SearchFiltersProps)
                 className="input !py-2 text-sm"
               >
                 <option value="">Tous</option>
-                <option value="4">4+ etoiles</option>
-                <option value="3">3+ etoiles</option>
+                <option value="4">4+ étoiles</option>
+                <option value="3">3+ étoiles</option>
               </select>
             </div>
           </div>
@@ -280,7 +280,7 @@ export default function SearchFilters({ filters, onChange }: SearchFiltersProps)
                 onChange={(e) => update("online", e.target.checked || undefined)}
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
-              Cours en ligne
+              Cours en ligne 🌐
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -289,7 +289,7 @@ export default function SearchFilters({ filters, onChange }: SearchFiltersProps)
                 onChange={(e) => update("verified", e.target.checked || undefined)}
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
-              Verifie uniquement
+              Vérifié uniquement 🟢
             </label>
           </div>
         </div>

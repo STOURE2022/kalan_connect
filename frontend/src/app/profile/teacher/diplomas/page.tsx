@@ -209,7 +209,7 @@ function AddForm({
         {/* Upload document */}
         <div>
           <label className="mb-1.5 block text-xs font-semibold text-white/40 uppercase tracking-wider">
-            Document (optionnel)
+            Document <span className="text-red-400">*</span>
           </label>
           <input
             ref={fileRef}

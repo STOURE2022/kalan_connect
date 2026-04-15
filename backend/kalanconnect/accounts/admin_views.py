@@ -158,7 +158,38 @@ class AdminVerifyTeacherView(APIView):
 
         approved = request.data.get("approved", False)
         reason = request.data.get("reason", "")
-        missing_docs = request.data.get("missing_docs", [])  # liste de clés : photo, identity, diploma, cv
+        rejected_docs = request.data.get("rejected_docs", [])  # docs présents mais invalides
+
+        # Auto-détection des pièces manquantes
+        doc_labels = {
+            "photo":    "photo de profil",
+            "identity": "pièce d'identité (NINA / Passeport / CNI)",
+            "diploma":  "scan de diplôme",
+            "cv":       "CV",
+        }
+        has_photo    = bool(teacher.photo)
+        has_identity = bool(teacher.identity_document) and bool(teacher.identity_document_type)
+        has_cv       = bool(teacher.cv)
+        has_diploma  = teacher.diplomas.filter(document__gt="").exists()
+
+        missing_docs = []
+        if not has_photo:    missing_docs.append("photo")
+        if not has_identity: missing_docs.append("identity")
+        if not has_cv:       missing_docs.append("cv")
+        if not has_diploma:  missing_docs.append("diploma")
+
+        # Bloquer l'approbation si pièces critiques manquantes
+        critical_missing = [d for d in missing_docs if d in ("photo", "identity", "cv")]
+        if approved and critical_missing:
+            return Response(
+                {
+                    "error": "Impossible d'approuver : pièces critiques manquantes.",
+                    "missing_docs": critical_missing,
+                    "missing_labels": [doc_labels[d] for d in critical_missing],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         teacher.is_verified = approved
         teacher.save(update_fields=["is_verified"])
 
@@ -174,28 +205,30 @@ class AdminVerifyTeacherView(APIView):
                     data={"teacher_id": teacher.id},
                 )
             else:
-                doc_labels = {
-                    "photo":    "photo de profil",
-                    "identity": "pièce d'identité (NINA / Passeport / CNI)",
-                    "diploma":  "scan de diplôme",
-                    "cv":       "CV",
-                }
+                parts = []
                 if missing_docs:
-                    docs_str = ", ".join(doc_labels.get(d, d) for d in missing_docs)
-                    base_msg = f"Documents manquants : {docs_str}. "
-                else:
-                    base_msg = ""
+                    parts.append("Documents manquants : " + ", ".join(doc_labels.get(d, d) for d in missing_docs))
+                # rejected_docs = docs présents mais invalides (signalés par l'admin)
+                valid_rejected = [d for d in rejected_docs if d not in missing_docs]
+                if valid_rejected:
+                    parts.append("Documents à corriger : " + ", ".join(doc_labels.get(d, d) for d in valid_rejected))
+                base_msg = ". ".join(parts) + (". " if parts else "")
                 full_msg = (
                     f"Votre profil n'a pas pu être vérifié. "
                     + base_msg
                     + (f"Raison : {reason}" if reason else "Veuillez compléter votre profil et soumettre à nouveau.")
                 )
+                notif_title = "Documents à corriger" if (missing_docs or valid_rejected) else "Profil refusé"
                 AppNotification.objects.create(
                     user=teacher.user,
-                    title="Documents manquants",
+                    title=notif_title,
                     message=full_msg,
                     type="system",
-                    data={"teacher_id": teacher.id, "missing_docs": missing_docs},
+                    data={
+                        "teacher_id": teacher.id,
+                        "missing_docs": missing_docs,
+                        "rejected_docs": valid_rejected,
+                    },
                 )
         except Exception:
             pass

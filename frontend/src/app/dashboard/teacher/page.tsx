@@ -105,6 +105,11 @@ function BookingDetailModal({
   const router = useRouter();
   const [chatLoading, setChatLoading] = useState(false);
 
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   const openChat = async () => {
     if (!booking.parent?.id) return;
     setChatLoading(true);
@@ -123,7 +128,7 @@ function BookingDetailModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="relative w-full max-w-md overflow-y-auto max-h-[90vh] rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -251,6 +256,11 @@ function StudentContactModal({
   const router = useRouter();
   const [chatLoading, setChatLoading] = useState(false);
 
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   const openChat = async () => {
     setChatLoading(true);
     try {
@@ -268,7 +278,7 @@ function StudentContactModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="relative w-full max-w-sm overflow-y-auto max-h-[90vh] rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
@@ -325,7 +335,7 @@ function StudentContactModal({
               </>
             ) : (
               <p className="rounded-xl border border-dashed border-gray-200 px-4 py-2.5 text-center text-xs text-gray-400">
-                Numéro de téléphone non renseigné
+                Numéro de téléphone non renseigné 📴
               </p>
             )}
           </div>

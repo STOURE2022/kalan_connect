@@ -67,6 +67,11 @@ function BookingDetailModal({ booking, onClose }: { booking: Booking; onClose: (
   const router = useRouter();
   const [chatLoading, setChatLoading] = useState(false);
   const cfg = STATUS_CONFIG[booking.status] ?? STATUS_CONFIG.pending;
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
   const canContact = ["pending", "confirmed"].includes(booking.status);
 
   const openChat = async () => {
@@ -86,7 +91,7 @@ function BookingDetailModal({ booking, onClose }: { booking: Booking; onClose: (
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="relative w-full max-w-md overflow-y-auto max-h-[90vh] rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h3 className="font-bold text-gray-900">Détail de la réservation</h3>
           <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:text-gray-600 transition-colors">
@@ -142,7 +147,7 @@ function BookingDetailModal({ booking, onClose }: { booking: Booking; onClose: (
           {/* Details grid */}
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Matière</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Matière 📝</p>
               <p className="text-sm font-bold text-gray-800">{booking.subject_name ?? "—"}</p>
             </div>
             <div className="rounded-xl bg-gray-50 p-3">
@@ -151,7 +156,7 @@ function BookingDetailModal({ booking, onClose }: { booking: Booking; onClose: (
             </div>
             {booking.start_time && (
               <div className="rounded-xl bg-gray-50 p-3">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Horaire</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Horaire 🕒</p>
                 <p className="text-sm font-bold text-gray-800">{booking.start_time.slice(0, 5)} – {booking.end_time?.slice(0, 5)}</p>
               </div>
             )}

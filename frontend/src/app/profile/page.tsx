@@ -79,12 +79,6 @@ const ROLE_LABELS: Record<string, string> = {
   teacher: "Professeur", admin: "Admin",
 };
 
-const ACTIVITY_MENU = [
-  { icon: CalendarDays, label: "Mes réservations",       href: "/profile/bookings",  color: "bg-blue-100 text-blue-600"     },
-  { icon: Star,         label: "Mes avis",               href: "/profile/reviews",   color: "bg-accent-100 text-accent-600" },
-  { icon: CreditCard,   label: "Abonnement & paiements", href: "/profile/payments",  color: "bg-purple-100 text-purple-600" },
-];
-
 const ACCOUNT_MENU = [
   { icon: Bell,       label: "Notifications",  href: "/profile/notifications", color: "bg-primary-100 text-primary-600" },
   { icon: Settings,   label: "Paramètres",     href: "/profile/settings",      color: "bg-gray-100 text-gray-600"       },
@@ -92,34 +86,51 @@ const ACCOUNT_MENU = [
 ];
 
 const PARENT_MENU_GROUPS = [
-  { title: "Mes enfants", items: [
-    { icon: Baby, label: "Gérer mes enfants", href: "/profile/children", color: "bg-violet-100 text-violet-600" },
-  ]},
-  { title: "Activité", items: ACTIVITY_MENU },
-  { title: "Compte",   items: ACCOUNT_MENU  },
+  {
+    title: "Mes enfants",
+    items: [
+      { icon: Baby,         label: "Gérer mes enfants",       href: "/profile/children",  color: "bg-violet-100 text-violet-600" },
+    ],
+  },
+  {
+    title: "Mon activité",
+    items: [
+      { icon: CalendarDays, label: "Mes réservations",        href: "/profile/bookings",  color: "bg-blue-100 text-blue-600"     },
+      { icon: CreditCard,   label: "Abonnement & paiements",  href: "/profile/payments",  color: "bg-purple-100 text-purple-600" },
+      { icon: Star,         label: "Mes avis",                href: "/profile/reviews",   color: "bg-accent-100 text-accent-600" },
+    ],
+  },
+  { title: "Compte", items: ACCOUNT_MENU },
 ];
 
 const STUDENT_MENU_GROUPS = [
-  { title: "Activité", items: ACTIVITY_MENU },
-  { title: "Compte",   items: ACCOUNT_MENU  },
+  {
+    title: "Mon activité",
+    items: [
+      { icon: CalendarDays, label: "Mes réservations",        href: "/profile/bookings",  color: "bg-blue-100 text-blue-600"     },
+      { icon: CreditCard,   label: "Abonnement & paiements",  href: "/profile/payments",  color: "bg-purple-100 text-purple-600" },
+      { icon: Star,         label: "Mes avis",                href: "/profile/reviews",   color: "bg-accent-100 text-accent-600" },
+    ],
+  },
+  { title: "Compte", items: ACCOUNT_MENU },
 ];
 
 const TEACHER_MENU_GROUPS = [
   {
     title: "Mon activité",
     items: [
-      { icon: CalendarDays, label: "Mes réservations",     href: "/profile/bookings",      color: "bg-blue-100 text-blue-600"     },
-      { icon: Star,          label: "Mes avis reçus",       href: "/profile/reviews",       color: "bg-accent-100 text-accent-600" },
-      { icon: TrendingUp,    label: "Mes statistiques",     href: "/profile/stats",         color: "bg-purple-100 text-purple-600" },
+      { icon: CalendarDays, label: "Mes réservations",       href: "/profile/bookings",       color: "bg-blue-100 text-blue-600"      },
+      { icon: Users,        label: "Mes sessions de groupe",  href: "/profile/teacher/events", color: "bg-emerald-100 text-emerald-600" },
+      { icon: Clock,        label: "Mes disponibilités",      href: "/profile/teacher/schedule", color: "bg-teal-100 text-teal-600"    },
+      { icon: TrendingUp,   label: "Mes statistiques",        href: "/profile/stats",          color: "bg-purple-100 text-purple-600"  },
     ],
   },
   {
     title: "Mon profil enseignant",
     items: [
-      { icon: Edit3,    label: "Modifier mon profil",   href: "/profile/teacher/edit",     color: "bg-primary-100 text-primary-600" },
-      { icon: Award,    label: "Mes diplômes",          href: "/profile/teacher/diplomas", color: "bg-indigo-100 text-indigo-600"   },
-      { icon: Clock,    label: "Mes disponibilités",    href: "/profile/teacher/schedule", color: "bg-teal-100 text-teal-600"       },
-      { icon: Users,    label: "Mes sessions de groupe", href: "/profile/teacher/events",  color: "bg-emerald-100 text-emerald-600" },
+      { icon: Edit3,  label: "Modifier mon profil", href: "/profile/teacher/edit",     color: "bg-primary-100 text-primary-600" },
+      { icon: Award,  label: "Mes diplômes",        href: "/profile/teacher/diplomas", color: "bg-indigo-100 text-indigo-600"   },
+      { icon: Star,   label: "Mes avis reçus",      href: "/profile/reviews",          color: "bg-accent-100 text-accent-600"   },
     ],
   },
   {
@@ -301,6 +312,14 @@ function TeacherProfileView({ user, logout, refreshUser }: { user: NonNullable<R
           </div>
         )}
 
+        {/* Accès rapide tableau de bord */}
+        <Link
+          href="/dashboard/teacher"
+          className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-500 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-600"
+        >
+          <LayoutDashboard size={16} /> Accéder au tableau de bord
+        </Link>
+
         {/* Menu */}
         {TEACHER_MENU_GROUPS.map((group) => (
           <div key={group.title} className="mb-4">
@@ -316,13 +335,6 @@ function TeacherProfileView({ user, logout, refreshUser }: { user: NonNullable<R
             </div>
           </div>
         ))}
-
-        <Link
-          href="/dashboard/teacher"
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-primary-200 bg-primary-50 py-3.5 text-sm font-semibold text-primary-600 transition-colors hover:bg-primary-100"
-        >
-          <LayoutDashboard size={16} /> Accéder au tableau de bord
-        </Link>
 
         <button
           onClick={logout}

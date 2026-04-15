@@ -61,6 +61,16 @@ function PendingTab() {
   const [expanded, setExpanded]     = useState<number | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState<Record<number, string>>({});
+  // rejected_docs[teacherId] = set of doc keys marked "à corriger" by admin
+  const [rejectedDocs, setRejectedDocs] = useState<Record<number, Set<string>>>({});
+
+  const toggleRejectedDoc = (teacherId: number, docKey: string) => {
+    setRejectedDocs((prev) => {
+      const next = new Set(prev[teacherId] ?? []);
+      if (next.has(docKey)) next.delete(docKey); else next.add(docKey);
+      return { ...prev, [teacherId]: next };
+    });
+  };
 
   const token = () => getAccessToken();
 
@@ -74,15 +84,6 @@ function PendingTab() {
 
   const handleVerify = async (teacher: PendingTeacher, approved: boolean) => {
     setProcessingId(teacher.id);
-    // Calculer les docs manquants automatiquement depuis la checklist
-    const cl = teacher.verification_checklist;
-    const missing: string[] = [];
-    if (cl) {
-      if (!cl.photo.ok)    missing.push("photo");
-      if (!cl.identity.ok) missing.push("identity");
-      if (!cl.diploma.ok)  missing.push("diploma");
-      if (!cl.cv.ok)       missing.push("cv");
-    }
     try {
       const res = await fetch(`${API}/admin/teachers/${teacher.id}/verify/`, {
         method: "POST",
@@ -90,10 +91,18 @@ function PendingTab() {
         body: JSON.stringify({
           approved,
           reason: rejectReason[teacher.id] ?? "",
-          missing_docs: approved ? [] : missing,
+          rejected_docs: Array.from(rejectedDocs[teacher.id] ?? []),
         }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.missing_labels?.length) {
+          toast.error(`Documents manquants : ${data.missing_labels.join(", ")}`, { duration: 5000 });
+        } else {
+          toast.error(data.error ?? "Erreur lors de l'opération");
+        }
+        return;
+      }
       toast.success(approved ? "Professeur vérifié !" : "Profil refusé");
       setPending((p) => p.filter((t) => t.id !== teacher.id));
     } catch {
@@ -292,34 +301,94 @@ function PendingTab() {
                 )}
 
                 {/* Decision */}
-                <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4 space-y-3">
-                  <p className="text-xs font-semibold text-white/50">Motif de refus / note pour le professeur (optionnel)</p>
-                  <textarea
-                    value={rejectReason[teacher.id] ?? ""}
-                    onChange={(e) => setRejectReason((p) => ({ ...p, [teacher.id]: e.target.value }))}
-                    placeholder="Expliquez la raison du refus au professeur..."
-                    rows={2}
-                    className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-sm text-white placeholder-white/20 focus:border-red-500/40 focus:outline-none resize-none"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleVerify(teacher, true)}
-                      disabled={processingId === teacher.id}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 py-2.5 text-sm font-bold text-white hover:bg-primary-600 disabled:opacity-50 transition-colors"
-                    >
-                      <CheckCircle2 size={15} />
-                      {processingId === teacher.id ? "..." : "Approuver"}
-                    </button>
-                    <button
-                      onClick={() => handleVerify(teacher, false)}
-                      disabled={processingId === teacher.id}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 py-2.5 text-sm font-bold text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
-                    >
-                      <XCircle size={15} />
-                      {processingId === teacher.id ? "..." : "Refuser"}
-                    </button>
-                  </div>
-                </div>
+                {(() => {
+                  const cl = teacher.verification_checklist;
+                  const criticalMissing: string[] = [];
+                  if (cl) {
+                    if (!cl.photo.ok)    criticalMissing.push("photo de profil");
+                    if (!cl.identity.ok) criticalMissing.push("pièce d'identité");
+                    if (!cl.cv.ok)       criticalMissing.push("CV");
+                  }
+                  const canApprove = criticalMissing.length === 0;
+                  return (
+                    <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4 space-y-3">
+                      {!canApprove && (
+                        <div className="flex items-start gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2.5">
+                          <AlertTriangle size={13} className="flex-shrink-0 text-red-400 mt-0.5" />
+                          <p className="text-xs text-red-300">
+                            <span className="font-bold">Approbation impossible</span> — pièces manquantes :{" "}
+                            {criticalMissing.join(", ")}.
+                          </p>
+                        </div>
+                      )}
+                      {/* Cases à cocher — docs présents mais à corriger */}
+                      {cl && (() => {
+                        const presentDocs = [
+                          { key: "photo",    label: "Photo de profil",           ok: cl.photo.ok },
+                          { key: "identity", label: "Pièce d'identité",          ok: cl.identity.ok },
+                          { key: "cv",       label: "CV",                         ok: cl.cv.ok },
+                          { key: "diploma",  label: "Scan de diplôme",            ok: cl.diploma.ok },
+                        ].filter((d) => d.ok); // seulement les docs déjà fournis
+                        if (presentDocs.length === 0) return null;
+                        return (
+                          <div>
+                            <p className="text-xs font-semibold text-white/50 mb-2">Documents à corriger / refaire</p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {presentDocs.map(({ key, label }) => {
+                                const checked = rejectedDocs[teacher.id]?.has(key) ?? false;
+                                return (
+                                  <label
+                                    key={key}
+                                    className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs transition-colors ${
+                                      checked
+                                        ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                                        : "border-white/10 bg-white/5 text-white/50 hover:border-white/20"
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => toggleRejectedDoc(teacher.id, key)}
+                                      className="accent-amber-400"
+                                    />
+                                    {label}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      <p className="text-xs font-semibold text-white/50">Motif de refus / note pour le professeur (optionnel)</p>
+                      <textarea
+                        value={rejectReason[teacher.id] ?? ""}
+                        onChange={(e) => setRejectReason((p) => ({ ...p, [teacher.id]: e.target.value }))}
+                        placeholder="Expliquez la raison du refus au professeur..."
+                        rows={2}
+                        className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-sm text-white placeholder-white/20 focus:border-red-500/40 focus:outline-none resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleVerify(teacher, true)}
+                          disabled={processingId === teacher.id || !canApprove}
+                          title={!canApprove ? `Manquant : ${criticalMissing.join(", ")}` : undefined}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 py-2.5 text-sm font-bold text-white hover:bg-primary-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <CheckCircle2 size={15} />
+                          {processingId === teacher.id ? "..." : "Approuver"}
+                        </button>
+                        <button
+                          onClick={() => handleVerify(teacher, false)}
+                          disabled={processingId === teacher.id}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 py-2.5 text-sm font-bold text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+                        >
+                          <XCircle size={15} />
+                          {processingId === teacher.id ? "..." : "Refuser"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

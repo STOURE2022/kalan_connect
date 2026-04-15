@@ -52,6 +52,11 @@ function BookingDetailModal({
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const cfg = STATUS_CONFIG[booking.status] ?? STATUS_CONFIG.pending;
 
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   // Pour le prof : contacter l'élève/parent
   const openChatWithParent = async () => {
     if (!booking.parent?.id) return;
@@ -114,7 +119,7 @@ function BookingDetailModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="relative w-full max-w-md overflow-y-auto max-h-[90vh] rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

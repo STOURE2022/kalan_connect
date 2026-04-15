@@ -276,7 +276,7 @@ export default function HomePage() {
             <div className="mb-8 flex items-end justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-primary-600">Professeurs 👨‍💼</p>
-                <h2 className="mt-1 text-2xl font-black text-gray-900">Disponibles à {city}</h2>
+                <h2 className="mt-1 text-2xl font-black text-gray-900">Disponibles à {city} 📍</h2>
               </div>
               <Link href={`/search?city=${city}`} className="flex items-center gap-1 text-sm font-semibold text-primary-600 hover:text-primary-700">
                 Tous les profs <ChevronRight size={15} />
@@ -303,7 +303,7 @@ export default function HomePage() {
                   <span className="text-xs font-bold uppercase tracking-widest text-emerald-600">En ce moment</span>
                 </div>
                 <h2 className="text-2xl font-black text-gray-900">Cours collectifs disponibles 👥</h2>
-                <p className="mt-1 text-sm text-gray-500">Rejoignez un groupe, payez moins, apprenez ensemble</p>
+                <p className="mt-1 text-sm text-gray-500">Rejoignez un groupe, payez moins, apprenez ensemble 📚🚀</p>
               </div>
               <Link href="/events" className="flex items-center gap-1 text-sm font-semibold text-emerald-600 hover:text-emerald-700">
                 Tous les événements <ChevronRight size={15} />
@@ -397,7 +397,7 @@ export default function HomePage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20">
                   <Flame size={16} className="text-yellow-200" />
                 </div>
-                <span className="text-xs font-bold uppercase tracking-wider text-white/80">Offre spéciale 2025</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-white/80">Offre spéciale 2026 🎉🎉🎉</span>
               </div>
               <h2 className="text-2xl font-black text-white md:text-3xl">
                 Tu prépares un concours ?
@@ -589,7 +589,7 @@ export default function HomePage() {
             <GraduationCap size={28} className="text-primary-400" />
           </div>
           <h2 className="text-2xl font-black text-white md:text-3xl">
-            Prêt à trouver le professeur idéal ?
+            Prêt à trouver le professeur idéal 🤓?
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm text-gray-400">
             Rejoignez des centaines de familles qui font confiance à KalanConnect pour l&apos;éducation de leurs enfants.
