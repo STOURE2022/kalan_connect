@@ -3,7 +3,7 @@
 import { getAccessToken } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bell, BookOpen, Star, MessageCircle, CreditCard, Info, ChevronRight } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Star, MessageCircle, CreditCard, Info, ChevronRight, Trophy } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { PageLoader } from "@/components/ui/LoadingSpinner";
 
@@ -13,16 +13,17 @@ interface AppNotification {
   message: string;
   type: "booking" | "review" | "system" | "chat" | "payment";
   is_read: boolean;
-  data?: { conversation_id?: number; [key: string]: unknown };
+  data?: { conversation_id?: number; concours_event_id?: number; [key: string]: unknown };
   created_at: string;
 }
 
 const TYPE_CONFIG: Record<string, { icon: typeof Bell; color: string; bg: string }> = {
-  booking: { icon: BookOpen,      color: "text-blue-600",    bg: "bg-blue-100"    },
-  review:  { icon: Star,          color: "text-accent-600",  bg: "bg-accent-100"  },
-  chat:    { icon: MessageCircle, color: "text-purple-600",  bg: "bg-purple-100"  },
-  payment: { icon: CreditCard,    color: "text-primary-600", bg: "bg-primary-100" },
-  system:  { icon: Info,          color: "text-gray-600",    bg: "bg-gray-100"    },
+  booking:  { icon: BookOpen,      color: "text-blue-600",    bg: "bg-blue-100"    },
+  review:   { icon: Star,          color: "text-accent-600",  bg: "bg-accent-100"  },
+  chat:     { icon: MessageCircle, color: "text-purple-600",  bg: "bg-purple-100"  },
+  payment:  { icon: CreditCard,    color: "text-primary-600", bg: "bg-primary-100" },
+  system:   { icon: Info,          color: "text-gray-600",    bg: "bg-gray-100"    },
+  concours: { icon: Trophy,        color: "text-amber-600",   bg: "bg-amber-100"   },
 };
 
 function timeAgo(dateStr: string) {
@@ -113,12 +114,14 @@ export default function NotificationsPage() {
       ) : (
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm divide-y divide-gray-50">
           {notifications.map((notif) => {
-            const cfg = TYPE_CONFIG[notif.type] ?? TYPE_CONFIG.system;
+            const isConcoursAlert = notif.type === "system" && !!notif.data?.concours_event_id;
+            const cfgKey = isConcoursAlert ? "concours" : notif.type;
+            const cfg = TYPE_CONFIG[cfgKey] ?? TYPE_CONFIG.system;
             const Icon = cfg.icon;
             const conversationId = notif.type === "chat" ? notif.data?.conversation_id : null;
+            const isClickable = !!conversationId || isConcoursAlert;
 
             const handleClick = async () => {
-              // Marquer comme lu
               if (!notif.is_read) {
                 const token = getAccessToken();
                 await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/${notif.id}/read/`, {
@@ -128,14 +131,15 @@ export default function NotificationsPage() {
                 setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, is_read: true } : n));
               }
               if (conversationId) router.push(`/chat/${conversationId}`);
+              else if (isConcoursAlert) router.push("/concours");
             };
 
             return (
               <div
                 key={notif.id}
-                onClick={conversationId ? handleClick : undefined}
+                onClick={isClickable ? handleClick : undefined}
                 className={`flex items-start gap-4 px-5 py-4 transition-colors ${
-                  conversationId ? "cursor-pointer" : ""
+                  isClickable ? "cursor-pointer" : ""
                 } ${!notif.is_read ? "bg-primary-50/40" : "hover:bg-gray-50"}`}
               >
                 <div className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${cfg.bg}`}>
@@ -154,7 +158,7 @@ export default function NotificationsPage() {
                   {!notif.is_read && (
                     <div className="h-2 w-2 rounded-full bg-primary-500" />
                   )}
-                  {conversationId && (
+                  {isClickable && (
                     <ChevronRight size={14} className="text-gray-300" />
                   )}
                 </div>

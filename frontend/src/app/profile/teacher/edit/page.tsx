@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Save, BookOpen, DollarSign, MapPin, Wifi, Home, Users,
   ShieldCheck, Upload, FileText, X, CheckCircle2, AlertCircle, Camera,
-  LocateFixed, Loader2,
+  LocateFixed, Loader2, Trophy,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { teachers as teachersApi } from "@/lib/api";
@@ -202,6 +202,7 @@ export default function TeacherEditPage() {
     teaches_online: false,
     teaches_at_home: true,
     teaches_at_student: false,
+    is_concours_specialist: false,
     subject_levels: [] as { subject_id: number; level_ids: number[] }[],
     identity_document_type: "",
   });
@@ -259,6 +260,7 @@ export default function TeacherEditPage() {
           teaches_online: data.teaches_online ?? false,
           teaches_at_home: data.teaches_at_home ?? true,
           teaches_at_student: data.teaches_at_student ?? false,
+          is_concours_specialist: data.is_concours_specialist ?? false,
           subject_levels,
           identity_document_type: data.identity_document_type ?? "",
         }));
@@ -345,6 +347,7 @@ export default function TeacherEditPage() {
       fd.append("teaches_online", String(form.teaches_online));
       fd.append("teaches_at_home", String(form.teaches_at_home));
       fd.append("teaches_at_student", String(form.teaches_at_student));
+      fd.append("is_concours_specialist", String(form.is_concours_specialist));
       fd.append("identity_document_type", form.identity_document_type);
       fd.append("subject_levels", JSON.stringify(form.subject_levels));
 
@@ -556,6 +559,53 @@ export default function TeacherEditPage() {
               );
             })}
           </div>
+        </div>
+
+        {/* Spécialiste Concours */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-700">
+            <Trophy size={15} className="text-amber-500" /> Spécialiste Concours
+          </h2>
+          <button
+            type="button"
+            onClick={() => setForm((p) => ({ ...p, is_concours_specialist: !p.is_concours_specialist }))}
+            className={`flex w-full items-center justify-between gap-4 rounded-xl border-2 p-4 text-left transition-all ${
+              form.is_concours_specialist
+                ? "border-amber-300 bg-amber-50"
+                : "border-gray-100 bg-gray-50 hover:border-amber-200 hover:bg-amber-50/50"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${
+                form.is_concours_specialist ? "bg-amber-100" : "bg-gray-100"
+              }`}>
+                <Trophy size={18} className={form.is_concours_specialist ? "text-amber-600" : "text-gray-400"} />
+              </div>
+              <div>
+                <p className={`text-sm font-bold ${form.is_concours_specialist ? "text-amber-800" : "text-gray-700"}`}>
+                  Je prépare aux concours
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Votre profil sera visible dans les recherches concours et recevra le badge
+                  <span className="font-semibold text-amber-600"> Spécialiste Concours</span>
+                </p>
+              </div>
+            </div>
+            {/* Toggle switch */}
+            <div className={`relative h-6 w-11 flex-shrink-0 rounded-full transition-colors ${
+              form.is_concours_specialist ? "bg-amber-500" : "bg-gray-300"
+            }`}>
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                form.is_concours_specialist ? "translate-x-5" : "translate-x-0.5"
+              }`} />
+            </div>
+          </button>
+          {form.is_concours_specialist && (
+            <p className="mt-2.5 flex items-center gap-1.5 text-xs text-amber-700">
+              <CheckCircle2 size={12} className="text-amber-500 flex-shrink-0" />
+              Activé — vous apparaissez dans les recherches normales ET dans les résultats concours.
+            </p>
+          )}
         </div>
 
         {/* Matières & Niveaux */}

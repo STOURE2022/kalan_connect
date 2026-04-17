@@ -66,6 +66,7 @@ class InitiatePaymentView(APIView):
             user=request.user,
             plan=plan,
             status=Subscription.Status.PENDING,
+            auto_renew=(plan != "concours"),
         )
 
         # Créer le paiement
@@ -232,6 +233,7 @@ class MockPaymentView(APIView):
             status=Subscription.Status.ACTIVE,
             start_date=now,
             end_date=now + timedelta(days=plan_config["duration_days"]),
+            auto_renew=(plan != "concours"),
         )
 
         # Créer le paiement marqué succès

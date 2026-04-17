@@ -28,19 +28,19 @@ const SUBJECT_ICONS: Record<string, React.ElementType> = {
   arabe: Languages,
 };
 
-const SUBJECT_COLORS: Record<string, { bg: string; text: string; ring: string }> = {
-  mathematiques: { bg: "bg-blue-50",    text: "text-blue-600",    ring: "ring-blue-200"    },
-  francais:      { bg: "bg-primary-50", text: "text-primary-600", ring: "ring-primary-200" },
-  anglais:       { bg: "bg-purple-50",  text: "text-purple-600",  ring: "ring-purple-200"  },
-  physique:      { bg: "bg-orange-50",  text: "text-orange-600",  ring: "ring-orange-200"  },
-  svt:           { bg: "bg-emerald-50", text: "text-emerald-600", ring: "ring-emerald-200" },
-  chimie:        { bg: "bg-pink-50",    text: "text-pink-600",    ring: "ring-pink-200"    },
-  informatique:  { bg: "bg-indigo-50",  text: "text-indigo-600",  ring: "ring-indigo-200"  },
-  arabe:         { bg: "bg-amber-50",   text: "text-amber-600",   ring: "ring-amber-200"   },
+const SUBJECT_STYLES: Record<string, { gradient: string; icon: string; label: string; count: string; shadow: string }> = {
+  mathematiques: { gradient: "from-blue-500 to-indigo-600",    icon: "text-white", label: "text-white",         count: "text-blue-100",    shadow: "shadow-blue-500/30"    },
+  francais:      { gradient: "from-primary-500 to-emerald-500",icon: "text-white", label: "text-white",         count: "text-emerald-100", shadow: "shadow-primary-500/30" },
+  anglais:       { gradient: "from-purple-500 to-violet-600",  icon: "text-white", label: "text-white",         count: "text-purple-100",  shadow: "shadow-purple-500/30"  },
+  physique:      { gradient: "from-orange-500 to-amber-500",   icon: "text-white", label: "text-white",         count: "text-orange-100",  shadow: "shadow-orange-500/30"  },
+  svt:           { gradient: "from-emerald-500 to-teal-600",   icon: "text-white", label: "text-white",         count: "text-emerald-100", shadow: "shadow-emerald-500/30" },
+  chimie:        { gradient: "from-pink-500 to-rose-600",      icon: "text-white", label: "text-white",         count: "text-pink-100",    shadow: "shadow-pink-500/30"    },
+  informatique:  { gradient: "from-indigo-500 to-purple-600",  icon: "text-white", label: "text-white",         count: "text-indigo-100",  shadow: "shadow-indigo-500/30"  },
+  arabe:         { gradient: "from-amber-500 to-orange-500",   icon: "text-white", label: "text-white",         count: "text-amber-100",   shadow: "shadow-amber-500/30"   },
 };
 
 function getSubjectStyle(slug: string) {
-  return SUBJECT_COLORS[slug] ?? { bg: "bg-gray-50", text: "text-gray-600", ring: "ring-gray-200" };
+  return SUBJECT_STYLES[slug] ?? { gradient: "from-gray-500 to-gray-600", icon: "text-white", label: "text-white", count: "text-gray-200", shadow: "shadow-gray-500/20" };
 }
 
 // ── Page principale ────────────────────────────────────────────────────────────
@@ -244,20 +244,24 @@ export default function HomePage() {
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {popularSubjects.slice(0, 8).map((subject) => {
-                const Icon = SUBJECT_ICONS[subject.slug] ?? BookOpen;
+                const Icon  = SUBJECT_ICONS[subject.slug] ?? BookOpen;
                 const style = getSubjectStyle(subject.slug);
                 return (
                   <button
                     key={subject.id}
                     onClick={() => router.push(`/search?subject=${subject.slug}&city=${city}`)}
-                    className={`group flex flex-col items-center gap-3 rounded-2xl border border-transparent bg-white p-5 text-center shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-current hover:shadow-md ring-0 hover:ring-2 ${style.ring}`}
+                    className={`group relative overflow-hidden flex flex-col items-center gap-3 rounded-2xl bg-gradient-to-br ${style.gradient} p-5 text-center shadow-md ${style.shadow} transition-all duration-200 hover:-translate-y-1 hover:shadow-lg`}
                   >
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${style.bg} transition-transform group-hover:scale-110`}>
-                      <Icon size={22} className={style.text} />
+                    {/* Cercle déco */}
+                    <div className="pointer-events-none absolute -right-4 -top-4 h-16 w-16 rounded-full bg-white/10" />
+                    <div className="pointer-events-none absolute -bottom-3 -left-3 h-12 w-12 rounded-full bg-white/10" />
+
+                    <div className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm transition-transform group-hover:scale-110">
+                      <Icon size={22} className={style.icon} />
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-800">{subject.name}</p>
-                      <p className="mt-0.5 text-xs text-gray-400">
+                    <div className="relative">
+                      <p className={`text-sm font-bold ${style.label}`}>{subject.name}</p>
+                      <p className={`mt-0.5 text-xs ${style.count}`}>
                         {subject.teacher_count} prof{subject.teacher_count > 1 ? "s" : ""}
                       </p>
                     </div>

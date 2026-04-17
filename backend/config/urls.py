@@ -28,6 +28,12 @@ from kalanconnect.accounts.views import (
     StudentTeachersView,
 )
 from kalanconnect.bookings.views import ReportAdminListView, ReportAdminUpdateView
+from kalanconnect.teachers.views import AdminSubjectListCreateView, AdminSubjectDetailView
+from kalanconnect.sessions.views import (
+    AdminConcoursDetailView,
+    AdminConcoursListCreateView,
+    ConcoursEventListView,
+)
 from kalanconnect.chat.views import (
     NotificationListView,
     NotificationMarkAllReadView,
@@ -46,6 +52,7 @@ urlpatterns = [
     path("api/v1/payments/", include("kalanconnect.payments.urls")),
     path("api/v1/search/", include("kalanconnect.search.urls")),
     path("api/v1/sessions/", include("kalanconnect.sessions.urls")),
+    path("api/v1/concours/", ConcoursEventListView.as_view(), name="concours-list"),
     # Notifications
     path("api/v1/notifications/", NotificationListView.as_view(), name="notifications-list"),
     path("api/v1/notifications/<int:pk>/read/", NotificationMarkReadView.as_view(), name="notification-read"),
@@ -76,6 +83,10 @@ urlpatterns = [
     path("api/v1/admin/reviews/", AdminReviewsView.as_view(), name="admin-reviews"),
     path("api/v1/admin/reviews/<int:pk>/", AdminDeleteReviewView.as_view(), name="admin-review-delete"),
     path("api/v1/admin/revenue/", AdminRevenueView.as_view(), name="admin-revenue"),
+    path("api/v1/admin/concours/", AdminConcoursListCreateView.as_view(), name="admin-concours-list"),
+    path("api/v1/admin/concours/<int:pk>/", AdminConcoursDetailView.as_view(), name="admin-concours-detail"),
+    path("api/v1/admin/subjects/", AdminSubjectListCreateView.as_view(), name="admin-subjects-list"),
+    path("api/v1/admin/subjects/<int:pk>/", AdminSubjectDetailView.as_view(), name="admin-subjects-detail"),
 ]
 
 if settings.DEBUG:

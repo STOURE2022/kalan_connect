@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Calendar, Clock, MapPin, Monitor, Users, User2,
   Loader2, Search, X, LocateFixed, SlidersHorizontal,
-  ChevronRight,
+  ChevronRight, ChevronDown,
 } from "lucide-react";
 import { sessions as sessionsApi, teachers as teachersApi } from "@/lib/api";
 import Avatar from "@/components/ui/Avatar";
@@ -165,6 +165,9 @@ export default function EventsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [geoLoading,  setGeoLoading]  = useState(false);
   const [geoActive,   setGeoActive]   = useState(false);
+  const [pastItems,   setPastItems]   = useState<GroupSession[]>([]);
+  const [showPast,    setShowPast]    = useState(false);
+  const [pastLoading, setPastLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -188,6 +191,15 @@ export default function EventsPage() {
 
   const toggle = (key: keyof Filters, val: string) =>
     setFilters((p) => ({ ...p, [key]: p[key] === val ? "" : val }));
+
+  const loadPast = () => {
+    if (pastItems.length > 0) { setShowPast((v) => !v); return; }
+    setPastLoading(true);
+    sessionsApi.list({ status: "completed" })
+      .then((r: PaginatedResponse<GroupSession>) => { setPastItems(r.results ?? []); setShowPast(true); })
+      .catch(() => {})
+      .finally(() => setPastLoading(false));
+  };
 
   const hasFilters   = Object.values(filters).some(Boolean);
   const activeCount  = Object.values(filters).filter(Boolean).length;
@@ -374,6 +386,37 @@ export default function EventsPage() {
             {items.map((s) => (
               <SessionCard key={`event-${s.id}`} s={s} />
             ))}
+          </div>
+        )}
+
+        {/* ── Sessions passées ── */}
+        {!filters.status && (
+          <div className="mt-8">
+            <button
+              onClick={loadPast}
+              className="flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                {pastLoading
+                  ? <Loader2 size={15} className="animate-spin text-gray-400" />
+                  : <Clock size={15} className="text-gray-300" />}
+                Sessions passées
+                {pastItems.length > 0 && (
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-500">
+                    {pastItems.length}
+                  </span>
+                )}
+              </span>
+              <ChevronDown size={16} className={`text-gray-400 transition-transform ${showPast ? "rotate-180" : ""}`} />
+            </button>
+
+            {showPast && pastItems.length > 0 && (
+              <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 opacity-70">
+                {pastItems.map((s) => (
+                  <SessionCard key={`past-${s.id}`} s={s} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

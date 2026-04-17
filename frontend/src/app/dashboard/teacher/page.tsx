@@ -4,15 +4,16 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  CalendarDays, CheckCircle2, XCircle, Clock, Star,
+  CalendarDays, CheckCircle2, XCircle, Clock,
   MessageCircle, TrendingUp, Users, Edit3, Award,
   ChevronRight, Bell, Shield, AlertTriangle, Wifi,
   Home, BookOpen, ArrowRight, MessageSquare, X,
-  MapPin, Phone, ExternalLink,
+  MapPin, Phone, ExternalLink, Flame,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { bookings as bookingsApi, chat as chatApi } from "@/lib/api";
+import { bookings as bookingsApi, chat as chatApi, stats as statsApi } from "@/lib/api";
 import { getAccessToken } from "@/lib/api";
+import type { TeacherProgressionStats } from "@/lib/api";
 import Avatar from "@/components/ui/Avatar";
 import { PageLoader } from "@/components/ui/LoadingSpinner";
 import toast from "react-hot-toast";
@@ -73,6 +74,81 @@ interface StudentItem {
   student: { id: number; first_name: string; last_name: string; phone?: string; avatar?: string | null; role: string };
   total_sessions: number;
   last_session: string | null;
+}
+
+function TeacherProgressionWidget() {
+  const [data, setData] = useState<TeacherProgressionStats | null>(null);
+
+  useEffect(() => {
+    statsApi.progressionTeacher().then(setData).catch(() => {});
+  }, []);
+
+  if (!data) return null;
+
+  const { sessions_count, hours_total, minutes_extra, subjects, students_count, avg_rating } = data;
+
+  const fmtHours = hours_total < 1
+    ? `${minutes_extra}min`
+    : `${Math.floor(hours_total)}h${minutes_extra > 0 ? minutes_extra : ""}`;
+
+  return (
+    <div className="mb-5 overflow-hidden rounded-2xl shadow-lg shadow-indigo-500/15">
+      {/* Header gradient */}
+      <div className="relative bg-gradient-to-br from-indigo-600 via-purple-600 to-violet-700 px-5 py-5">
+        <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute -bottom-4 left-1/3 h-20 w-20 rounded-full bg-white/10" />
+        <div className="relative flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+            <TrendingUp size={18} className="text-white" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-white">Ce que j&apos;ai accompli</h2>
+            <p className="text-[11px] text-indigo-200">Depuis le début de votre activité</p>
+          </div>
+        </div>
+
+        {/* Stats inline dans le header */}
+        <div className="relative mt-5 grid grid-cols-3 divide-x divide-white/10">
+          <div className="px-2 text-center">
+            <p className="text-3xl font-black text-white">{sessions_count}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-indigo-200">séance{sessions_count > 1 ? "s" : ""}</p>
+          </div>
+          <div className="px-2 text-center">
+            <p className="text-3xl font-black text-white">{fmtHours}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-indigo-200">enseignées</p>
+          </div>
+          <div className="px-2 text-center">
+            <p className="text-3xl font-black text-white">{students_count}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-indigo-200">élève{students_count > 1 ? "s" : ""}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Matières */}
+      <div className="bg-indigo-50 px-5 py-4">
+        {subjects.length > 0 ? (
+          <div>
+            <p className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-indigo-400">
+              <Flame size={11} className="text-orange-400" /> Matières enseignées
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {subjects.map((s) => (
+                <span key={s} className="rounded-lg border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 shadow-sm">
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-indigo-400 text-center py-1">
+            {sessions_count === 0
+              ? "Vos premières séances terminées apparaîtront ici."
+              : "Aucune matière enregistrée."}
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function completionScore(td: TeacherData | null): { score: number; missing: string[] } {
@@ -490,12 +566,12 @@ export default function TeacherDashboardPage() {
             </div>
 
             {/* Stats */}
-            <div className="mt-6 grid grid-cols-4 gap-2">
+            <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
-                { label: "Note",    value: teacherData?.avg_rating ? `${teacherData.avg_rating.toFixed(1)}★` : "—", color: "text-accent-300"  },
-                { label: "Avis",    value: teacherData?.total_reviews ?? "—",  color: "text-white"       },
-                { label: "Cours",   value: completed.length,                   color: "text-white"       },
-                { label: "Ce mois", value: monthRevenue > 0 ? `${(monthRevenue / 1000).toFixed(0)}K` : "—", color: "text-primary-200" },
+                { label: "Note",         value: teacherData?.avg_rating ? `${teacherData.avg_rating.toFixed(1)}★` : "—", color: "text-accent-300"  },
+                { label: "Avis",         value: teacherData?.total_reviews ?? "—",  color: "text-white"       },
+                { label: "Cette semaine",value: weekCourses.length,                  color: "text-white"       },
+                { label: "Ce mois",      value: monthRevenue > 0 ? `${(monthRevenue / 1000).toFixed(0)}K` : "—", color: "text-primary-200" },
               ].map(({ label, value, color }) => (
                 <div key={label} className="rounded-xl bg-white/10 p-3 text-center backdrop-blur-sm">
                   <p className={`text-lg font-extrabold ${color}`}>{value}</p>
@@ -506,11 +582,11 @@ export default function TeacherDashboardPage() {
           </div>
         </div>
 
-        <div className="mx-auto max-w-3xl px-4">
+        <div className="mx-auto max-w-3xl px-4 pt-6">
 
           {/* ── Profile completion ── */}
           {score < 100 && (
-            <div className="relative z-10 -mt-6 mb-5">
+            <div className="relative z-10 -mt-12 mb-5">
               <Link href="/profile/teacher/edit" className="group block overflow-hidden rounded-2xl bg-white shadow-lg shadow-indigo-500/10 border border-indigo-100">
                 <div className="flex items-center gap-4 p-4">
                   <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-100">
@@ -532,6 +608,9 @@ export default function TeacherDashboardPage() {
               </Link>
             </div>
           )}
+
+          {/* ── Progression ── */}
+          <TeacherProgressionWidget />
 
           {/* ── Pending bookings ── */}
           {pending.length > 0 && (
@@ -713,23 +792,37 @@ export default function TeacherDashboardPage() {
             <div className="mb-5">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-bold text-gray-900">Mes élèves récents</h2>
-                <span className="text-sm text-gray-400">{students.length} au total</span>
+                <Link
+                  href="/profile/students"
+                  className="flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700"
+                >
+                  Voir tous ({students.length}) <ChevronRight size={13} />
+                </Link>
               </div>
-              <div className="flex gap-3 overflow-x-auto pb-1">
-                {students.slice(0, 6).map((s) => (
-                  <button
-                    key={s.student.id}
-                    onClick={() => setSelectedStudent(s)}
-                    className="flex flex-shrink-0 flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm w-24 text-center hover:border-indigo-200 hover:shadow-md transition-all"
-                  >
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600">
-                      {s.student.first_name?.[0] ?? "?"}{s.student.last_name?.[0] ?? ""}
-                    </div>
-                    <p className="text-xs font-semibold text-gray-700 truncate w-full">{s.student.first_name}</p>
-                    {s.total_sessions > 0 && <p className="text-[10px] text-gray-400">{s.total_sessions} cours</p>}
-                    <span className="text-[10px] text-indigo-400 font-medium">Contacter</span>
-                  </button>
-                ))}
+              <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none">
+                {students.slice(0, 8).map((s) => {
+                  const initials = `${s.student.first_name?.[0] ?? ""}${s.student.last_name?.[0] ?? ""}`.toUpperCase();
+                  const colors = ["from-indigo-500 to-purple-600", "from-primary-500 to-emerald-500", "from-orange-500 to-amber-500", "from-blue-500 to-cyan-500", "from-rose-500 to-pink-500"];
+                  const color  = colors[s.student.id % colors.length];
+                  return (
+                    <button
+                      key={s.student.id}
+                      onClick={() => setSelectedStudent(s)}
+                      className="group flex flex-shrink-0 snap-start flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white p-4 w-[88px] text-center hover:border-indigo-200 hover:shadow-md transition-all shadow-sm"
+                    >
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${color} text-sm font-black text-white shadow-sm`}>
+                        {initials || "?"}
+                      </div>
+                      <p className="text-xs font-semibold text-gray-800 truncate w-full leading-tight">{s.student.first_name}</p>
+                      <p className="text-[10px] text-gray-400 leading-none">
+                        {s.total_sessions > 0 ? `${s.total_sessions} cours` : "Nouveau"}
+                      </p>
+                      <span className="text-[10px] font-semibold text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                        Voir →
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

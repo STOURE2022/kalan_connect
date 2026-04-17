@@ -1,6 +1,31 @@
 from rest_framework import serializers
+from django.utils import timezone
 from kalanconnect.accounts.serializers import UserMinimalSerializer
-from .models import GroupSession, SessionRegistration
+from .models import ConcoursEvent, GroupSession, SessionRegistration
+
+
+class ConcoursEventSerializer(serializers.ModelSerializer):
+    days_until_inscription = serializers.SerializerMethodField()
+    days_until_examen      = serializers.SerializerMethodField()
+    type_display           = serializers.CharField(source="get_type_display", read_only=True)
+
+    class Meta:
+        model  = ConcoursEvent
+        fields = [
+            "id", "type", "type_display", "title", "year",
+            "date_inscription_limite", "date_examen",
+            "description", "days_until_inscription", "days_until_examen",
+        ]
+
+    def get_days_until_inscription(self, obj):
+        if not obj.date_inscription_limite:
+            return None
+        delta = (obj.date_inscription_limite - timezone.now().date()).days
+        return max(0, delta)
+
+    def get_days_until_examen(self, obj):
+        delta = (obj.date_examen - timezone.now().date()).days
+        return max(0, delta)
 
 
 class TeacherMiniSerializer(serializers.Serializer):

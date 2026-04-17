@@ -7,10 +7,12 @@ import {
   Trophy, BookOpen, Clock, Star, Shield, CheckCircle2,
   ArrowRight, GraduationCap, Target, Flame, Users,
   Calculator, Globe, Atom, Monitor, Leaf, Languages, ChevronRight,
+  CalendarDays, Bell, Lock,
 } from "lucide-react";
-import { teachers as teachersApi } from "@/lib/api";
+import { teachers as teachersApi, concours as concoursApi } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 import Avatar from "@/components/ui/Avatar";
-import type { TeacherListItem } from "@/types";
+import type { TeacherListItem, ConcoursEvent } from "@/types";
 
 // ── Données statiques ──────────────────────────────────────────────────────────
 
@@ -40,6 +42,190 @@ const TESTIMONIALS = [
   { name: "Ibrahima D.", city: "Sikasso", text: "Le prof de physique m'a aidé à combler mes lacunes en 2 mois. Admis à l'ENI !", rating: 5 },
   { name: "Fatoumata S.", city: "Ségou", text: "Cours intensifs de français pendant 3 mois. Le suivi était parfait. Réussi mon BEPC.", rating: 5 },
 ];
+
+// ── Calendrier des concours ────────────────────────────────────────────────────
+
+const TYPE_COLORS: Record<string, string> = {
+  BAC:   "bg-indigo-100 text-indigo-700 border-indigo-200",
+  BEPC:  "bg-blue-100 text-blue-700 border-blue-200",
+  ENI:   "bg-emerald-100 text-emerald-700 border-emerald-200",
+  CAT:   "bg-violet-100 text-violet-700 border-violet-200",
+  ENA:   "bg-amber-100 text-amber-700 border-amber-200",
+  ENAM:  "bg-orange-100 text-orange-700 border-orange-200",
+  FMPOS: "bg-rose-100 text-rose-700 border-rose-200",
+  other: "bg-gray-100 text-gray-600 border-gray-200",
+};
+
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString("fr-FR", {
+    day: "2-digit", month: "long", year: "numeric",
+  });
+}
+
+function DaysChip({ days }: { days: number }) {
+  if (days <= 1)  return <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-black text-red-600">J-1 !</span>;
+  if (days <= 7)  return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">J-{days}</span>;
+  if (days <= 30) return <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-600">J-{days}</span>;
+  return <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500">J-{days}</span>;
+}
+
+const CARD_GRADIENTS: Record<string, { gradient: string; badge: string; icon: string; body: string; border: string }> = {
+  BAC:   { gradient: "from-indigo-500 to-indigo-700",   badge: "bg-indigo-100 text-indigo-700 border-indigo-200",   icon: "🏫", body: "bg-indigo-50/60",   border: "border-indigo-100" },
+  BEPC:  { gradient: "from-blue-500 to-blue-700",       badge: "bg-blue-100 text-blue-700 border-blue-200",         icon: "📚", body: "bg-blue-50/60",     border: "border-blue-100" },
+  ENI:   { gradient: "from-emerald-500 to-emerald-700", badge: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: "🏛️", body: "bg-emerald-50/60", border: "border-emerald-100" },
+  CAT:   { gradient: "from-violet-500 to-violet-700",   badge: "bg-violet-100 text-violet-700 border-violet-200",   icon: "🎓", body: "bg-violet-50/60",   border: "border-violet-100" },
+  ENA:   { gradient: "from-amber-500 to-amber-700",     badge: "bg-amber-100 text-amber-700 border-amber-200",       icon: "⚖️", body: "bg-amber-50/60",   border: "border-amber-100" },
+  ENAM:  { gradient: "from-orange-500 to-orange-700",   badge: "bg-orange-100 text-orange-700 border-orange-200",   icon: "🏛️", body: "bg-orange-50/60", border: "border-orange-100" },
+  FMPOS: { gradient: "from-rose-500 to-rose-700",       badge: "bg-rose-100 text-rose-700 border-rose-200",         icon: "🏥", body: "bg-rose-50/60",     border: "border-rose-100" },
+  other: { gradient: "from-gray-500 to-gray-700",       badge: "bg-gray-100 text-gray-600 border-gray-200",         icon: "📋", body: "bg-gray-50/80",     border: "border-gray-100" },
+};
+
+function UrgencyBar({ days }: { days: number }) {
+  const pct = Math.max(0, Math.min(100, ((30 - days) / 30) * 100));
+  const color = days <= 7 ? "bg-red-500" : days <= 15 ? "bg-amber-500" : "bg-emerald-400";
+  return (
+    <div className="mt-3 h-1.5 w-full rounded-full bg-white/20 overflow-hidden">
+      <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+function ConcoursEventCard({ event }: { event: ConcoursEvent }) {
+  const theme = CARD_GRADIENTS[event.type] ?? CARD_GRADIENTS.other;
+  const isUrgent = event.days_until_examen <= 7;
+  const isSoon   = event.days_until_examen <= 30;
+
+  return (
+    <div className={`group relative overflow-hidden rounded-2xl shadow-sm border ${theme.border} ${theme.body} flex flex-col transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-black/8`}>
+      {/* Header coloré */}
+      <div className={`relative bg-gradient-to-br ${theme.gradient} px-5 pt-5 pb-6`}>
+        {/* Cercle déco */}
+        <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute -bottom-4 right-8 h-16 w-16 rounded-full bg-white/10" />
+
+        <div className="relative flex items-start justify-between gap-2">
+          <div>
+            <span className="text-2xl leading-none">{theme.icon}</span>
+            <h3 className="mt-2 text-base font-black text-white leading-snug">{event.title}</h3>
+            <p className="mt-0.5 text-xs font-semibold text-white/70">{event.type_display} · {event.year}</p>
+          </div>
+          <DaysChip days={event.days_until_examen} />
+        </div>
+
+        {isSoon && <UrgencyBar days={event.days_until_examen} />}
+      </div>
+
+      {/* Corps */}
+      <div className="flex flex-1 flex-col gap-3 px-5 py-4 backdrop-blur-none">
+        {/* Date examen */}
+        <div className="flex items-center gap-3">
+          <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl ${isUrgent ? "bg-red-50" : "bg-gray-50"}`}>
+            <CalendarDays size={14} className={isUrgent ? "text-red-500" : "text-gray-400"} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Date d&apos;examen</p>
+            <p className={`text-sm font-bold ${isUrgent ? "text-red-600" : "text-gray-800"}`}>{formatDate(event.date_examen)}</p>
+          </div>
+        </div>
+
+        {/* Date inscription */}
+        {event.date_inscription_limite && (
+          <div className="flex items-center gap-3">
+            <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl ${
+              event.days_until_inscription !== null && event.days_until_inscription <= 7 ? "bg-amber-50" : "bg-gray-50"
+            }`}>
+              <Clock size={14} className={
+                event.days_until_inscription !== null && event.days_until_inscription <= 7 ? "text-amber-500" : "text-gray-400"
+              } />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Limite d&apos;inscription</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-gray-700">{formatDate(event.date_inscription_limite)}</p>
+                {event.days_until_inscription !== null && event.days_until_inscription <= 30 && (
+                  <DaysChip days={event.days_until_inscription} />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {event.description && (
+          <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{event.description}</p>
+        )}
+
+        {/* Footer */}
+        <div className={`mt-auto pt-3 border-t ${theme.border} flex items-center justify-between`}>
+          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${theme.badge}`}>
+            {event.type}
+          </span>
+          <Link
+            href="/search?ordering=-is_concours_specialist"
+            className="flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 opacity-0 transition-opacity group-hover:opacity-100"
+          >
+            Trouver un prof <ChevronRight size={12} />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CalendrierSection({ events, hasSubscription }: { events: ConcoursEvent[]; hasSubscription: boolean }) {
+  if (events.length === 0) return null;
+  return (
+    <section className="py-16 bg-gray-50/60">
+      <div className="mx-auto max-w-5xl px-4">
+        {/* En-tête */}
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-500">Dates officielles</p>
+            <h2 className="mt-1 text-2xl font-black text-gray-900 flex items-center gap-2">
+              <CalendarDays size={22} className="text-amber-500" /> Calendrier des concours
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">{events.length} concours à venir</p>
+          </div>
+          {!hasSubscription ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100">
+                <Bell size={15} className="text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-amber-800">Alertes J-7 et J-1</p>
+                <p className="text-[11px] text-amber-600">Disponibles avec l&apos;abonnement Concours</p>
+              </div>
+              <Link href="/payment?plan=concours" className="ml-1 flex-shrink-0 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-black text-white shadow-sm hover:bg-amber-600">
+                3 500 FCFA
+              </Link>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
+              <CheckCircle2 size={15} className="text-green-500" />
+              <p className="text-xs font-semibold text-green-700">Alertes automatiques activées</p>
+            </div>
+          )}
+        </div>
+
+        {/* Grille de cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {events.map((event) => <ConcoursEventCard key={event.id} event={event} />)}
+        </div>
+
+        {!hasSubscription && (
+          <div className="mt-6 flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
+            <Lock size={15} className="flex-shrink-0 text-gray-400" />
+            <p className="text-xs text-gray-500">
+              Les <span className="font-semibold text-gray-700">alertes automatiques J-7 et J-1</span> dans vos notifications sont réservées aux abonnés plan Concours (3 500 FCFA / 3 mois).
+            </p>
+            <Link href="/payment?plan=concours" className="ml-auto flex-shrink-0 text-xs font-bold text-amber-600 hover:text-amber-700 underline underline-offset-2">
+              S&apos;abonner
+            </Link>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 // ── Teacher card ───────────────────────────────────────────────────────────────
 function ConcoursTeacherCard({ teacher }: { teacher: TeacherListItem }) {
@@ -120,7 +306,9 @@ function ConcoursTeacherCard({ teacher }: { teacher: TeacherListItem }) {
 // ── Page principale ────────────────────────────────────────────────────────────
 export default function ConcoursPage() {
   const router = useRouter();
+  const { hasSubscription } = useAuth();
   const [concoursTeachers, setConcoursTeachers] = useState<TeacherListItem[]>([]);
+  const [calendarEvents, setCalendarEvents]     = useState<ConcoursEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -129,6 +317,10 @@ export default function ConcoursPage() {
       .then((res) => setConcoursTeachers((res.results ?? []).slice(0, 6)))
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    concoursApi.list()
+      .then(setCalendarEvents)
+      .catch(() => {});
   }, []);
 
   return (
@@ -180,7 +372,7 @@ export default function ConcoursPage() {
               <Trophy size={16} /> S&apos;abonner — 3 500 FCFA / 3 mois
             </button>
             <button
-              onClick={() => router.push("/search?concours=true")}
+              onClick={() => router.push("/search?ordering=-is_concours_specialist")}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-8 py-4 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:w-auto"
             >
               <GraduationCap size={16} /> Voir les profs concours
@@ -188,6 +380,8 @@ export default function ConcoursPage() {
           </div>
         </div>
       </section>
+
+      <CalendrierSection events={calendarEvents} hasSubscription={hasSubscription} />
 
       {/* ── PRIX ── */}
       <section className="bg-amber-50 border-b border-amber-100 py-10">
@@ -282,7 +476,7 @@ export default function ConcoursPage() {
               <p className="text-xs font-bold uppercase tracking-widest text-amber-500">Experts</p>
               <h2 className="mt-1 text-2xl font-black text-gray-900">Profs spécialistes concours</h2>
             </div>
-            <Link href="/search?concours=true" className="flex items-center gap-1 text-sm font-semibold text-primary-600 hover:text-primary-700">
+            <Link href="/search?ordering=-is_concours_specialist" className="flex items-center gap-1 text-sm font-semibold text-primary-600 hover:text-primary-700">
               Tous les profs <ChevronRight size={15} />
             </Link>
           </div>

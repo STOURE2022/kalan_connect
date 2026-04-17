@@ -7,7 +7,7 @@ import math
 from django.db.models import F, Q, Value, FloatField
 from django.db.models.functions import ACos, Cos, Radians, Sin
 from django_filters import rest_framework as filters
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -189,6 +189,7 @@ class TeacherSearchView(generics.ListAPIView):
     - min_rating : note minimale
     - online : true/false
     - verified : true/false
+    - concours : true/false — réservé aux abonnés plan Concours
     - lat / lng / radius : recherche géographique
     - q : recherche textuelle (nom, bio)
     - ordering : tri (ex: "-avg_rating", "hourly_rate", "-total_reviews")
@@ -204,6 +205,7 @@ class TeacherSearchView(generics.ListAPIView):
         "total_reviews",
         "experience_years",
         "created_at",
+        "is_concours_specialist",
     ]
     ordering = ["-is_featured", "-avg_rating"]
 
@@ -316,11 +318,15 @@ class TeacherStatsView(APIView):
         month_earnings = completed.filter(date__gte=month_start.date()).aggregate(Sum("price"))["price__sum"] or 0
 
         student_ids = all_bookings.values_list("parent_id", flat=True).distinct()
+        pending   = all_bookings.filter(status="pending")
+        confirmed = all_bookings.filter(status="confirmed")
 
         return Response({
             "total_students": student_ids.count(),
             "total_bookings": all_bookings.count(),
-            "completed_sessions": completed.count(),
+            "completed_bookings": completed.count(),
+            "pending_bookings": pending.count(),
+            "confirmed_bookings": confirmed.count(),
             "total_earnings": total_earnings,
             "avg_rating": profile.avg_rating,
             "total_reviews": profile.total_reviews,
@@ -369,6 +375,61 @@ class TeacherStudentsView(APIView):
             })
 
         return Response({"count": len(results), "results": results})
+
+
+# ──────────────────────────────────────────────
+# Admin — Gestion des matières
+# ──────────────────────────────────────────────
+
+class IsAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == "admin"
+
+
+class AdminSubjectSerializer(SubjectSerializer):
+    teacher_count = serializers.SerializerMethodField()
+
+    class Meta(SubjectSerializer.Meta):
+        fields = ["id", "name", "slug", "icon", "category", "is_active", "teacher_count"]
+        read_only_fields = ["slug", "teacher_count"]
+
+    def get_teacher_count(self, obj):
+        return obj.teachers.count()
+
+    def create(self, validated_data):
+        from django.utils.text import slugify
+        validated_data["slug"] = slugify(validated_data["name"])
+        return super().create(validated_data)
+
+
+class AdminSubjectListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /api/v1/admin/subjects/  — liste toutes les matières
+    POST /api/v1/admin/subjects/  — créer une matière
+    """
+    serializer_class   = AdminSubjectSerializer
+    permission_classes = [IsAdmin]
+    pagination_class   = None
+
+    def get_queryset(self):
+        qs = Subject.objects.all()
+        if self.request.query_params.get("active") == "true":
+            qs = qs.filter(is_active=True)
+        elif self.request.query_params.get("active") == "false":
+            qs = qs.filter(is_active=False)
+        return qs.order_by("name")
+
+
+class AdminSubjectDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /api/v1/admin/subjects/<id>/
+    PATCH  /api/v1/admin/subjects/<id>/
+    DELETE /api/v1/admin/subjects/<id>/
+    """
+    serializer_class   = AdminSubjectSerializer
+    permission_classes = [IsAdmin]
+    queryset           = Subject.objects.all()
+    http_method_names  = ["get", "patch", "delete"]
 
 
 # ──────────────────────────────────────────────

@@ -14,38 +14,50 @@ const SUBJECT_COLORS = [
   "bg-indigo-100 text-indigo-700",
 ];
 
+// Gradient selon le profil du prof
+function headerGradient(teacher: TeacherListItem) {
+  if (teacher.is_concours_specialist) return "from-orange-500 to-amber-600";
+  if (teacher.is_featured)            return "from-violet-500 to-purple-700";
+  return "from-primary-500 to-emerald-600";
+}
+
 export default function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
   const hasRating = teacher.total_reviews > 0;
+  const gradient  = headerGradient(teacher);
 
   return (
     <Link href={`/teachers/${teacher.id}`} className="group block h-full">
-      <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary-200 hover:shadow-lg hover:shadow-primary-500/10">
+      <article className="relative flex h-full flex-col overflow-hidden rounded-2xl shadow-md shadow-black/8 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/12">
 
-        {/* ── Zone photo ── */}
-        <div className="relative bg-gradient-to-br from-primary-50 via-primary-100/60 to-emerald-50 px-5 pt-5 pb-4">
+        {/* ── Zone photo (gradient vivid) ── */}
+        <div className={`relative bg-gradient-to-br ${gradient} px-5 pt-5 pb-5`}>
+          {/* Cercles déco */}
+          <div className="pointer-events-none absolute -right-5 -top-5 h-20 w-20 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -bottom-3 left-1/4 h-14 w-14 rounded-full bg-white/10" />
+
           {/* Badges */}
           <div className="absolute right-3 top-3 flex flex-col gap-1">
             {teacher.is_featured && (
-              <span className="flex items-center gap-0.5 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+              <span className="flex items-center gap-0.5 rounded-full border border-white/20 bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
                 <Star size={9} className="fill-white" /> Top
               </span>
             )}
             {teacher.is_concours_specialist && (
-              <span className="flex items-center gap-0.5 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+              <span className="flex items-center gap-0.5 rounded-full border border-white/20 bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
                 <Trophy size={9} /> Concours
               </span>
             )}
           </div>
 
           {/* Photo + nom */}
-          <div className="flex flex-col items-center gap-2">
+          <div className="relative flex flex-col items-center gap-2">
             <div className="relative">
               <Avatar
                 src={teacher.photo}
                 firstName={teacher.user.first_name}
                 lastName={teacher.user.last_name}
                 size="xl"
-                className="rounded-2xl ring-4 ring-white shadow-md"
+                className="rounded-2xl ring-4 ring-white/40 shadow-lg"
               />
               {teacher.is_verified && (
                 <div className="absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-md">
@@ -53,16 +65,16 @@ export default function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
                 </div>
               )}
             </div>
-            <h3 className="text-sm font-bold text-gray-900 text-center transition-colors group-hover:text-primary-600">
+            <h3 className="text-sm font-bold text-white text-center drop-shadow-sm">
               {teacher.user.first_name} {teacher.user.last_name}
             </h3>
           </div>
         </div>
 
-        {/* ── Corps ── */}
-        <div className="flex flex-1 flex-col gap-2.5 px-4 py-3">
+        {/* ── Corps (légèrement teinté) ── */}
+        <div className="flex flex-1 flex-col gap-2.5 bg-gray-50 px-4 py-3">
 
-          {/* Matières (max 2) */}
+          {/* Matières */}
           <div className="flex flex-wrap justify-center gap-1">
             {teacher.subjects.slice(0, 2).map((s, i) => (
               <span
@@ -73,37 +85,37 @@ export default function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
               </span>
             ))}
             {teacher.subjects.length > 2 && (
-              <span className="rounded-lg bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-500">
+              <span className="rounded-lg bg-gray-200 px-2.5 py-0.5 text-xs font-semibold text-gray-600">
                 +{teacher.subjects.length - 2}
               </span>
             )}
           </div>
 
-          {/* Localisation + distance */}
+          {/* Localisation */}
           <p className="flex items-center justify-center gap-1 text-xs text-gray-400">
             <MapPin size={10} className="flex-shrink-0 text-gray-300" />
             <span className="truncate">{teacher.city}</span>
             {teacher.distance_km != null && (
-              <span className="flex-shrink-0 rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-600">
+              <span className="flex-shrink-0 rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-600">
                 {teacher.distance_km.toFixed(1)} km
               </span>
             )}
           </p>
 
-          {/* Modes — icônes seulement */}
-          <div className="flex justify-center gap-3">
+          {/* Modes */}
+          <div className="flex justify-center gap-2">
             {teacher.teaches_online && (
-              <span title="En ligne" className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-500">
+              <span title="En ligne" className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-500">
                 <Monitor size={13} />
               </span>
             )}
             {teacher.teaches_at_home && (
-              <span title="À domicile" className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-50 text-primary-500">
+              <span title="À domicile" className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-100 text-primary-500">
                 <Home size={13} />
               </span>
             )}
             {teacher.teaches_at_student && (
-              <span title="Chez l'élève" className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 text-purple-500">
+              <span title="Chez l'élève" className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-purple-500">
                 <Users size={13} />
               </span>
             )}
@@ -111,8 +123,7 @@ export default function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
         </div>
 
         {/* ── Footer ── */}
-        <div className="flex items-center justify-between border-t border-gray-50 px-4 py-3">
-          {/* Rating */}
+        <div className="flex items-center justify-between border-t border-gray-100 bg-white px-4 py-3">
           <div className="flex items-center gap-1">
             {hasRating ? (
               <>
@@ -127,7 +138,6 @@ export default function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
             )}
           </div>
 
-          {/* Prix + CTA */}
           <div className="flex flex-shrink-0 items-center gap-2">
             <p className="whitespace-nowrap text-sm font-black text-gray-900">
               {formatPrice(teacher.hourly_rate)}<span className="text-[11px] font-normal text-gray-400">/h</span>

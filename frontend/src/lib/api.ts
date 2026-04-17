@@ -5,6 +5,7 @@
 import type {
   AuthTokens,
   Booking,
+  ConcoursEvent,
   Conversation,
   GroupSession,
   Level,
@@ -295,6 +296,19 @@ export const chat = {
 };
 
 // ──────────────────────────────────────────
+// NOTIFICATIONS
+// ──────────────────────────────────────────
+
+export const notifications = {
+  async getUnreadCount() {
+    return apiFetch<{ unread_count: number }>("/notifications/unread-count/");
+  },
+  async markAllRead() {
+    return apiFetch<void>("/notifications/read-all/", { method: "POST" });
+  },
+};
+
+// ──────────────────────────────────────────
 // PAYMENTS
 // ──────────────────────────────────────────
 
@@ -313,7 +327,7 @@ export const payments = {
     }>("/payments/check-subscription/");
   },
 
-  async initiate(plan: "monthly" | "annual", phoneNumber: string) {
+  async initiate(plan: "monthly" | "annual" | "concours", phoneNumber: string) {
     return apiFetch<{
       payment_id: string;
       payment_url: string;
@@ -325,7 +339,7 @@ export const payments = {
     });
   },
 
-  async mockConfirm(plan: "monthly" | "annual") {
+  async mockConfirm(plan: "monthly" | "annual" | "concours") {
     return apiFetch<{ status: string; plan: string; end_date: string }>(
       "/payments/mock-confirm/",
       { method: "POST", body: JSON.stringify({ plan }) },
@@ -403,6 +417,44 @@ export const sessions = {
 
   async complete(id: number) {
     return apiFetch<GroupSession>(`/sessions/${id}/complete/`, { method: "POST" });
+  },
+};
+
+export const concours = {
+  async list() {
+    return apiFetch<ConcoursEvent[]>("/concours/");
+  },
+};
+
+export interface ProgressionStats {
+  sessions_count: number;
+  hours_total: number;
+  minutes_extra: number;
+  subjects: string[];
+  next_concours: {
+    title: string;
+    type: string;
+    type_display: string;
+    date_examen: string;
+    days_until: number;
+  } | null;
+}
+
+export interface TeacherProgressionStats {
+  sessions_count: number;
+  hours_total: number;
+  minutes_extra: number;
+  subjects: string[];
+  students_count: number;
+  avg_rating: number | null;
+}
+
+export const stats = {
+  async progression() {
+    return apiFetch<ProgressionStats>("/bookings/progression/");
+  },
+  async progressionTeacher() {
+    return apiFetch<TeacherProgressionStats>("/bookings/progression/teacher/");
   },
 };
 

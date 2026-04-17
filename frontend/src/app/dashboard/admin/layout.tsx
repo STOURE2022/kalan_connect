@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
   Flag, TrendingUp, LogOut, Menu, X, Bell,
-  ChevronRight, Shield, CreditCard, Star, ExternalLink,
+  ChevronRight, Shield, CreditCard, Star, ExternalLink, Trophy,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { PageLoader } from "@/components/ui/LoadingSpinner";
@@ -20,6 +20,7 @@ const NAV = [
   { href: "/dashboard/admin/reviews",        icon: Star,            label: "Avis"                           },
   { href: "/dashboard/admin/reports",        icon: Flag,            label: "Signalements"                   },
   { href: "/dashboard/admin/revenue",        icon: TrendingUp,      label: "Revenus"                        },
+  { href: "/dashboard/admin/concours",       icon: Trophy,          label: "Concours"                       },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

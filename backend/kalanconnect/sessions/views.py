@@ -2,12 +2,32 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import GroupSession, SessionRegistration
+
+class IsAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == "admin"
+
+from django.utils import timezone
+from .models import ConcoursEvent, GroupSession, SessionRegistration
 from .serializers import (
+    ConcoursEventSerializer,
     GroupSessionCreateSerializer,
     GroupSessionDetailSerializer,
     GroupSessionListSerializer,
 )
+
+
+class ConcoursEventListView(generics.ListAPIView):
+    """GET /api/v1/concours/ — Concours à venir (public)"""
+    serializer_class   = ConcoursEventSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class   = None
+
+    def get_queryset(self):
+        return ConcoursEvent.objects.filter(
+            is_active=True,
+            date_examen__gte=timezone.now().date(),
+        )
 
 
 class IsTeacher(permissions.BasePermission):
@@ -18,6 +38,17 @@ class IsTeacher(permissions.BasePermission):
 class IsSessionOwner(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         return obj.teacher.user == request.user
+
+
+class HasActiveSubscription(permissions.BasePermission):
+    """Réservé aux utilisateurs avec un abonnement actif (parent, étudiant, student)."""
+    message = "Un abonnement actif est requis pour s'inscrire à une session."
+
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated
+            and request.user.has_active_subscription
+        )
 
 
 class GroupSessionListView(generics.ListAPIView):
@@ -37,11 +68,33 @@ class GroupSessionListView(generics.ListAPIView):
         if p.get("subject"):
             qs = qs.filter(subject__slug=p["subject"])
 
+        # Auto-complétion défensive : sessions passées encore open/full
+        import datetime as dt
+        now   = timezone.now()
+        today = timezone.localdate()
+        stale = qs.filter(
+            date__lt=today,
+            status__in=[GroupSession.Status.OPEN, GroupSession.Status.FULL],
+        ) | qs.filter(
+            date=today,
+            end_time__lt=now.time(),
+            status__in=[GroupSession.Status.OPEN, GroupSession.Status.FULL],
+        )
+        stale_ids = list(stale.values_list("id", flat=True))
+        if stale_ids:
+            GroupSession.objects.filter(id__in=stale_ids).update(
+                status=GroupSession.Status.COMPLETED,
+                updated_at=now,
+            )
+
         # Statut
         if p.get("status"):
             qs = qs.filter(status=p["status"])
         else:
-            qs = qs.exclude(status__in=["cancelled", "completed"])
+            # Par défaut : uniquement les sessions actives à venir
+            qs = qs.exclude(status__in=["cancelled", "completed"]).filter(
+                date__gte=today
+            )
 
         # Enseignant
         if p.get("teacher"):
@@ -68,7 +121,6 @@ class GroupSessionListView(generics.ListAPIView):
             qs = qs.filter(price_per_student__gt=0)
 
         # Date
-        today = timezone.localdate()
         if p.get("date") == "today":
             qs = qs.filter(date=today)
         elif p.get("date") == "week":
@@ -144,7 +196,7 @@ class GroupSessionActionView(APIView):
 
 class SessionRegisterView(APIView):
     """POST /api/v1/sessions/<id>/register/"""
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasActiveSubscription]
 
     def post(self, request, pk):
         try:
@@ -217,3 +269,41 @@ class TeacherSessionListView(generics.ListAPIView):
             .select_related("teacher__user", "subject")
             .prefetch_related("registrations__user")
         )
+
+
+# ── Admin — ConcoursEvent CRUD ───────────────────────────────────────────────
+
+class AdminConcoursEventSerializer(ConcoursEventSerializer):
+    """Serializer admin : tous les champs en lecture/écriture."""
+    class Meta(ConcoursEventSerializer.Meta):
+        fields = ConcoursEventSerializer.Meta.fields + ["is_active"]
+
+
+class AdminConcoursListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /api/v1/admin/concours/  — Liste tous les événements (y compris inactifs)
+    POST /api/v1/admin/concours/  — Crée un événement
+    """
+    serializer_class   = AdminConcoursEventSerializer
+    permission_classes = [IsAdmin]
+    pagination_class   = None
+
+    def get_queryset(self):
+        qs = ConcoursEvent.objects.all()
+        if self.request.query_params.get("active") == "false":
+            qs = qs.filter(is_active=False)
+        elif self.request.query_params.get("active") == "true":
+            qs = qs.filter(is_active=True)
+        return qs
+
+
+class AdminConcoursDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /api/v1/admin/concours/<id>/
+    PATCH  /api/v1/admin/concours/<id>/
+    DELETE /api/v1/admin/concours/<id>/
+    """
+    serializer_class   = AdminConcoursEventSerializer
+    permission_classes = [IsAdmin]
+    queryset           = ConcoursEvent.objects.all()
+    http_method_names  = ["get", "patch", "delete"]

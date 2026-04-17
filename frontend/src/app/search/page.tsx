@@ -3,7 +3,8 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search as SearchIcon, X, SlidersHorizontal } from "lucide-react";
-import { teachers as teachersApi } from "@/lib/api";
+import { teachers as teachersApi, ApiError } from "@/lib/api";
+import toast from "react-hot-toast";
 import TeacherCard from "@/components/teachers/TeacherCard";
 import SearchFilters from "@/components/teachers/SearchFilters";
 import { TeacherCardSkeleton } from "@/components/ui/LoadingSpinner";
@@ -39,7 +40,7 @@ function SearchContent() {
     level:    searchParams.get("level")   || undefined,
     city:     searchParams.get("city")    || "Bamako",
     q:        searchParams.get("q")       || undefined,
-    ordering: "-avg_rating",
+    ordering: searchParams.get("ordering") || "-avg_rating",
     page: 1,
   });
 
@@ -58,7 +59,6 @@ function SearchContent() {
       setTotalCount(data.count);
       setHasMore(!!data.next);
     } catch {
-      // ignore
     } finally {
       setLoading(false);
     }

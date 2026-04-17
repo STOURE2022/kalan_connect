@@ -7,15 +7,16 @@ import {
   Search, CalendarDays, MessageCircle, CreditCard, BookOpen,
   CheckCircle2, Clock, XCircle, ArrowRight, Star, TrendingUp,
   Bell, ChevronRight, Sparkles, GraduationCap, Zap, Users,
-  Baby, Plus, Phone, MapPin, X, User,
+  Baby, Plus, Phone, MapPin, X, User, Trophy, Flame, Target,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { bookings as bookingsApi, chat as chatApi } from "@/lib/api";
+import { bookings as bookingsApi, chat as chatApi, concours as concoursApi, stats as statsApi } from "@/lib/api";
 import { getAccessToken } from "@/lib/api";
+import type { ProgressionStats } from "@/lib/api";
 import Avatar from "@/components/ui/Avatar";
 import { PageLoader } from "@/components/ui/LoadingSpinner";
 import toast from "react-hot-toast";
-import type { Booking, Child } from "@/types";
+import type { Booking, Child, ConcoursEvent } from "@/types";
 
 const STATUS_CONFIG: Record<
   string,
@@ -206,6 +207,188 @@ function StatCard({
   );
 }
 
+function ProgressionWidget() {
+  const [data, setData] = useState<ProgressionStats | null>(null);
+
+  useEffect(() => {
+    statsApi.progression().then(setData).catch(() => {});
+  }, []);
+
+  if (!data) return null;
+
+  const { sessions_count, hours_total, minutes_extra, subjects, next_concours } = data;
+
+  // Barre sprint : progression vers le concours basée sur les séances
+  // 20 séances = objectif complet (arbitraire, visuel)
+  const GOAL = 20;
+  const pct  = Math.min(100, Math.round((sessions_count / GOAL) * 100));
+
+  const urgentColor = next_concours
+    ? next_concours.days_until <= 7  ? "text-red-600"
+    : next_concours.days_until <= 30 ? "text-amber-600"
+    : "text-gray-500"
+    : "text-gray-500";
+
+  const barColor = next_concours
+    ? next_concours.days_until <= 7  ? "bg-red-500"
+    : next_concours.days_until <= 30 ? "bg-amber-500"
+    : "bg-primary-500"
+    : "bg-primary-500";
+
+  return (
+    <div className="mb-6 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-gray-50 px-5 py-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-50">
+            <TrendingUp size={15} className="text-primary-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-gray-900">Ma progression</h2>
+            <p className="text-[11px] text-gray-400">Séances effectuées</p>
+          </div>
+        </div>
+        {next_concours && (
+          <div className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold ${
+            next_concours.days_until <= 7  ? "border-red-200 bg-red-50 text-red-600"
+            : next_concours.days_until <= 30 ? "border-amber-200 bg-amber-50 text-amber-700"
+            : "border-gray-100 bg-gray-50 text-gray-500"
+          }`}>
+            <Target size={12} />
+            {next_concours.type} dans {next_concours.days_until}j
+          </div>
+        )}
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 divide-x divide-gray-50 border-b border-gray-50">
+        <div className="px-5 py-4 text-center">
+          <p className="text-2xl font-black text-gray-900">{sessions_count}</p>
+          <p className="mt-0.5 text-[11px] font-medium text-gray-400">séance{sessions_count > 1 ? "s" : ""}</p>
+        </div>
+        <div className="px-5 py-4 text-center">
+          <p className="text-2xl font-black text-gray-900">
+            {hours_total < 1
+              ? `${minutes_extra}min`
+              : `${Math.floor(hours_total)}h${minutes_extra > 0 ? minutes_extra : ""}`}
+          </p>
+          <p className="mt-0.5 text-[11px] font-medium text-gray-400">de cours</p>
+        </div>
+        <div className="px-5 py-4 text-center">
+          <p className="text-2xl font-black text-gray-900">{subjects.length}</p>
+          <p className="mt-0.5 text-[11px] font-medium text-gray-400">matière{subjects.length > 1 ? "s" : ""}</p>
+        </div>
+      </div>
+
+      {/* Sprint bar */}
+      <div className="px-5 py-4">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+            <Flame size={12} className="text-orange-400" />
+            Sprint vers {next_concours ? next_concours.type : "le concours"}
+          </div>
+          <span className="text-xs font-black text-gray-900">{pct}%</span>
+        </div>
+        <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
+          <div
+            className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400">
+          <span>Objectif : {GOAL} séances</span>
+          {pct >= 100
+            ? <span className="font-bold text-primary-600">Objectif atteint 🎉</span>
+            : <span>{GOAL - sessions_count} séance{GOAL - sessions_count > 1 ? "s" : ""} restante{GOAL - sessions_count > 1 ? "s" : ""}</span>
+          }
+        </div>
+
+        {/* Matières chips ou CTA si aucune séance */}
+        {subjects.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {subjects.map((s) => (
+              <span key={s} className="rounded-lg bg-gray-50 border border-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                {s}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <Link
+            href="/search"
+            className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-primary-200 bg-primary-50/60 px-4 py-2.5 text-xs font-medium text-primary-600 hover:bg-primary-50 transition-colors"
+          >
+            <Search size={13} />
+            Réserve ta première séance pour commencer le sprint
+            <ChevronRight size={12} className="ml-auto" />
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConcoursWidget() {
+  const [events, setEvents] = useState<ConcoursEvent[]>([]);
+
+  useEffect(() => {
+    concoursApi.list().then((data) => setEvents(data.slice(0, 3))).catch(() => {});
+  }, []);
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Trophy size={15} className="text-amber-500" />
+          <h2 className="text-sm font-bold text-gray-800">Prochains concours</h2>
+        </div>
+        <Link href="/concours" className="flex items-center gap-1 text-xs font-semibold text-amber-600 hover:text-amber-700">
+          Calendrier <ChevronRight size={12} />
+        </Link>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+        {events.map((e) => {
+          const urgent = e.days_until_examen <= 7;
+          const soon   = e.days_until_examen <= 30;
+          return (
+            <Link
+              key={e.id}
+              href="/concours"
+              className={`flex-shrink-0 w-48 rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-md ${
+                urgent
+                  ? "border-red-200 bg-gradient-to-br from-red-50 to-amber-50"
+                  : soon
+                  ? "border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50"
+                  : "border-gray-100 bg-white"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-black border ${
+                  urgent ? "bg-red-100 text-red-700 border-red-200"
+                  : soon  ? "bg-amber-100 text-amber-700 border-amber-200"
+                  : "bg-gray-100 text-gray-500 border-gray-200"
+                }`}>
+                  {e.type}
+                </span>
+                <span className={`text-[11px] font-black ${
+                  urgent ? "text-red-600" : soon ? "text-amber-600" : "text-gray-400"
+                }`}>
+                  J-{e.days_until_examen}
+                </span>
+              </div>
+              <p className="text-xs font-bold text-gray-800 leading-tight line-clamp-2">{e.title}</p>
+              <p className="mt-1.5 text-[11px] text-gray-400">
+                {new Date(e.date_examen).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+              </p>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading, isLoggedIn, hasSubscription, isParent } = useAuth();
@@ -323,6 +506,10 @@ export default function DashboardPage() {
             </Link>
           </div>
         )}
+
+        {/* ── Concours widget ── */}
+        <ProgressionWidget />
+        <ConcoursWidget />
 
         {/* ── Stats ── */}
         <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">

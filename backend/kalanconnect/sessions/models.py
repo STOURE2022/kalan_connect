@@ -2,6 +2,35 @@ from django.conf import settings
 from django.db import models
 
 
+class ConcoursEvent(models.Model):
+    """Événement concours (BAC, BEPC, ENI…) avec ses dates clés."""
+
+    class Type(models.TextChoices):
+        BAC   = "BAC",   "Baccalauréat"
+        BEPC  = "BEPC",  "BEPC"
+        ENI   = "ENI",   "École Nationale d'Ingénieurs"
+        CAT   = "CAT",   "Certificat d'Aptitude à l'Enseignement"
+        ENA   = "ENA",   "École Nationale d'Administration"
+        ENAM  = "ENAM",  "ENAM"
+        FMPOS = "FMPOS", "Faculté de Médecine / FMPOS"
+        OTHER = "other", "Autre"
+
+    type                    = models.CharField(max_length=10, choices=Type.choices)
+    title                   = models.CharField(max_length=200)
+    year                    = models.PositiveSmallIntegerField()
+    date_inscription_limite = models.DateField(null=True, blank=True)
+    date_examen             = models.DateField()
+    description             = models.TextField(blank=True)
+    is_active               = models.BooleanField(default=True)
+    created_at              = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["date_examen"]
+
+    def __str__(self):
+        return f"{self.type} {self.year} — {self.title}"
+
+
 class GroupSession(models.Model):
     class Status(models.TextChoices):
         OPEN      = "open",      "Ouvert"

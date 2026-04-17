@@ -21,4 +21,7 @@ urlpatterns = [
     path("packs/create/", views.BookingPackCreateView.as_view(), name="pack-create"),
     # Signalements
     path("reports/", views.ReportCreateView.as_view(), name="report-create"),
+    # Progression
+    path("progression/", views.progression_stats, name="progression"),
+    path("progression/teacher/", views.progression_stats_teacher, name="progression-teacher"),
 ]

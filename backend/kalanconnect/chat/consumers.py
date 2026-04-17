@@ -63,6 +63,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         if message_type == "text":
             message = await self.save_message(content["content"])
+            if message is None:
+                # Limite de messages gratuits atteinte
+                from django.conf import settings as django_settings
+                await self.send(text_data=json.dumps({
+                    "type": "message_limit",
+                    "limit": getattr(django_settings, "FREE_MESSAGES_LIMIT", 3),
+                }))
+                return
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -136,6 +144,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def save_message(self, content):
+        from django.conf import settings as django_settings
+        limit = getattr(django_settings, "FREE_MESSAGES_LIMIT", 3)
+
+        # Vérifier la limite pour les non-abonnés
+        if not self.user.has_active_subscription:
+            sent_count = Message.objects.filter(
+                conversation_id=self.conversation_id,
+                sender=self.user,
+            ).count()
+            if sent_count >= limit:
+                return None  # Limite atteinte
+
         message = Message.objects.create(
             conversation_id=self.conversation_id,
             sender=self.user,

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Monitor, Users, User2,
-  CheckCircle2, XCircle, Loader2, AlertCircle,
+  CheckCircle2, XCircle, Loader2, AlertCircle, Lock,
 } from "lucide-react";
 import { sessions as sessionsApi } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,7 +27,7 @@ function fmtDate(d: string) {
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { isLoggedIn, isTeacher } = useAuth();
+  const { isLoggedIn, isTeacher, hasSubscription } = useAuth();
   const [session, setSession] = useState<GroupSession | null>(null);
   const [loading, setLoading]   = useState(true);
   const [acting,  setActing]    = useState(false);
@@ -49,6 +49,7 @@ export default function EventDetailPage() {
 
   const handleRegister = async () => {
     if (!isLoggedIn) { router.push("/auth/login"); return; }
+    if (!hasSubscription) { router.push("/payment"); return; }
     setActing(true);
     try {
       if (session.is_registered) {
@@ -155,43 +156,66 @@ export default function EventDetailPage() {
           {/* Prix + CTA */}
           {!isClosed && !isTeacher && (
             <div className="border-t border-gray-50 p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {session.price_per_student === 0 ? (
-                      <span className="text-primary-600">Gratuit</span>
-                    ) : (
-                      <>{formatPrice(session.price_per_student)}<span className="text-sm font-normal text-gray-400">/élève</span></>
-                    )}
-                  </p>
+              {!isLoggedIn || !hasSubscription ? (
+                /* Banner abonnement requis */
+                <div className="flex flex-col items-center gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-4 text-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+                    <Lock size={18} className="text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-800">Abonnement requis</p>
+                    <p className="mt-0.5 text-sm text-gray-500">
+                      S&apos;inscrire à une session nécessite un abonnement actif
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => router.push(isLoggedIn ? "/payment" : "/auth/login")}
+                    className="rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-primary-600 transition-colors"
+                  >
+                    {isLoggedIn ? "Voir les abonnements" : "Se connecter"}
+                  </button>
                 </div>
-                <button
-                  onClick={handleRegister}
-                  disabled={acting || (isFull && !session.is_registered)}
-                  className={`flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-white transition-colors disabled:opacity-50 ${
-                    session.is_registered
-                      ? "bg-red-500 hover:bg-red-600"
-                      : isFull
-                        ? "bg-gray-300"
-                        : "bg-primary-500 hover:bg-primary-600"
-                  }`}
-                >
-                  {acting ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : session.is_registered ? (
-                    <><XCircle size={16} /> Se désinscrire</>
-                  ) : isFull ? (
-                    <><AlertCircle size={16} /> Complet</>
-                  ) : (
-                    <><CheckCircle2 size={16} /> S&apos;inscrire</>
+              ) : (
+                /* CTA normal */
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {session.price_per_student === 0 ? (
+                          <span className="text-primary-600">Gratuit</span>
+                        ) : (
+                          <>{formatPrice(session.price_per_student)}<span className="text-sm font-normal text-gray-400">/élève</span></>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleRegister}
+                      disabled={acting || (isFull && !session.is_registered)}
+                      className={`flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-white transition-colors disabled:opacity-50 ${
+                        session.is_registered
+                          ? "bg-red-500 hover:bg-red-600"
+                          : isFull
+                            ? "bg-gray-300"
+                            : "bg-primary-500 hover:bg-primary-600"
+                      }`}
+                    >
+                      {acting ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : session.is_registered ? (
+                        <><XCircle size={16} /> Se désinscrire</>
+                      ) : isFull ? (
+                        <><AlertCircle size={16} /> Complet</>
+                      ) : (
+                        <><CheckCircle2 size={16} /> S&apos;inscrire</>
+                      )}
+                    </button>
+                  </div>
+                  {session.is_registered && (
+                    <p className="mt-2 flex items-center gap-1.5 text-sm text-primary-600">
+                      <CheckCircle2 size={14} /> Vous êtes inscrit(e) à cette session
+                    </p>
                   )}
-                </button>
-              </div>
-
-              {session.is_registered && (
-                <p className="mt-2 flex items-center gap-1.5 text-sm text-primary-600">
-                  <CheckCircle2 size={14} /> Vous êtes inscrit(e) à cette session
-                </p>
+                </>
               )}
             </div>
           )}

@@ -17,7 +17,9 @@ interface TeacherStats {
   avg_rating: number;
   total_reviews: number;
   total_students: number;
-  response_time_hours: number;
+  total_earnings: number;
+  this_month_earnings: number;
+  this_month_bookings: number;
 }
 
 export default function StatsPage() {

@@ -9,7 +9,7 @@ import {
   Users, GraduationCap, BookOpen, TrendingUp, Flag,
   Clock, CheckCircle2, XCircle, AlertTriangle,
   ArrowUpRight, ArrowRight, Activity, CreditCard,
-  UserCheck, Zap, Star, ExternalLink,
+  UserCheck, Zap, Star, ExternalLink, Trophy,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -254,6 +254,8 @@ export default function AdminDashboardPage() {
           { href: "/dashboard/admin/subscriptions",  icon: CreditCard,     label: "Abonnements actifs",         desc: `${stats?.active_subscriptions ?? 0} abonnés`,                  color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20 hover:border-emerald-500/40" },
           { href: "/dashboard/admin/reviews",        icon: Star,           label: "Modérer les avis",           desc: "Avis et évaluations",                                          color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20 hover:border-amber-500/40" },
           { href: "/dashboard/admin/revenue",        icon: TrendingUp,     label: "Analyser les revenus",       desc: `${(stats?.total_revenue ?? 0).toLocaleString()} FCFA`,         color: "text-primary-400", bg: "bg-primary-500/10 border-primary-500/20 hover:border-primary-500/40" },
+          { href: "/dashboard/admin/concours",       icon: Trophy,         label: "Calendrier concours",        desc: "Gérer les dates & alertes",                                    color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20 hover:border-amber-500/40" },
+          { href: "/dashboard/admin/subjects",       icon: BookOpen,       label: "Gestion des matières",       desc: "Ajouter, modifier, désactiver",                                color: "text-teal-400",    bg: "bg-teal-500/10 border-teal-500/20 hover:border-teal-500/40" },
         ].map(({ href, icon: Icon, label, desc, color, bg }) => (
           <Link key={href} href={href} className={`flex items-center gap-3 rounded-xl border p-4 transition-all ${bg}`}>
             <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white/5 ${color}`}>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CreditCard, CheckCircle2, Clock, XCircle, ArrowRight } from "lucide-react";
+import { ArrowLeft, CreditCard, CheckCircle2, Clock, XCircle, ArrowRight, Trophy } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { payments as paymentsApi } from "@/lib/api";
 import { PageLoader } from "@/components/ui/LoadingSpinner";
@@ -12,6 +12,13 @@ import type { Subscription } from "@/types";
 const PLAN_LABELS: Record<string, string> = {
   monthly: "Mensuel",
   annual: "Annuel",
+  concours: "Préparation Concours",
+};
+
+const PLAN_PERIOD: Record<string, string> = {
+  monthly: "mois",
+  annual: "an",
+  concours: "3 mois",
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: typeof Clock }> = {
@@ -62,13 +69,23 @@ export default function PaymentsPage() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-medium text-primary-100">Abonnement actif</p>
-              <p className="mt-1 text-2xl font-bold">{PLAN_LABELS[active.plan] ?? active.plan}</p>
+              <div className="mt-1 flex items-center gap-2">
+                <p className="text-2xl font-bold">{PLAN_LABELS[active.plan] ?? active.plan}</p>
+                {active.plan === "concours" && (
+                  <span className="flex items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-xs font-bold text-amber-200">
+                    <Trophy size={11} /> Concours
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-sm text-primary-100">
-                {active.price.toLocaleString()} FCFA / {active.plan === "monthly" ? "mois" : "an"}
+                {active.price.toLocaleString()} FCFA / {PLAN_PERIOD[active.plan] ?? active.plan}
               </p>
+              {active.plan === "concours" && (
+                <p className="mt-1 text-xs text-amber-200">Renouvellement automatique désactivé</p>
+              )}
             </div>
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
-              <CreditCard size={22} className="text-white" />
+              {active.plan === "concours" ? <Trophy size={22} className="text-white" /> : <CreditCard size={22} className="text-white" />}
             </div>
           </div>
           {active.end_date && (
@@ -95,20 +112,30 @@ export default function PaymentsPage() {
 
       {/* Plans */}
       {!active && (
-        <div className="mb-6 grid grid-cols-2 gap-3">
+        <div className="mb-6 grid grid-cols-3 gap-3">
           {[
-            { plan: "monthly", price: "1 500 FCFA", period: "par mois", desc: "Sans engagement" },
-            { plan: "annual",  price: "15 000 FCFA", period: "par an", desc: "2 mois offerts (-17%)" },
-          ].map(({ plan, price, period, desc }) => (
+            { plan: "monthly",  price: "1 500 FCFA",  period: "par mois",   desc: "Sans engagement" },
+            { plan: "concours", price: "3 500 FCFA",  period: "3 mois",     desc: "Spécialistes concours", highlight: true },
+            { plan: "annual",   price: "15 000 FCFA", period: "par an",     desc: "2 mois offerts (-17%)" },
+          ].map(({ plan, price, period, desc, highlight }) => (
             <Link
               key={plan}
               href={`/payment?plan=${plan}`}
-              className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm hover:border-primary-200 hover:shadow-md transition-all"
+              className={`rounded-2xl border p-4 shadow-sm transition-all ${
+                highlight
+                  ? "border-amber-300 bg-amber-50 hover:border-amber-400 hover:shadow-md"
+                  : "border-gray-100 bg-white hover:border-primary-200 hover:shadow-md"
+              }`}
             >
+              {highlight && (
+                <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-xs font-bold text-amber-700">
+                  <Trophy size={10} /> Concours
+                </span>
+              )}
               <p className="text-sm font-semibold text-gray-700">{PLAN_LABELS[plan]}</p>
-              <p className="mt-2 text-xl font-bold text-gray-900">{price}</p>
+              <p className="mt-1 text-lg font-bold text-gray-900">{price}</p>
               <p className="text-xs text-gray-400">{period}</p>
-              <p className="mt-1 text-xs font-medium text-primary-600">{desc}</p>
+              <p className={`mt-1 text-xs font-medium ${highlight ? "text-amber-700" : "text-primary-600"}`}>{desc}</p>
             </Link>
           ))}
         </div>

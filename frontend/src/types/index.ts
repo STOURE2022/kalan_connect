@@ -155,6 +155,7 @@ export interface Conversation {
   } | null;
   unread_count: number;
   last_message_at: string;
+  free_messages_used: number;
 }
 
 export interface Message {
@@ -172,7 +173,7 @@ export interface Message {
 
 export interface Subscription {
   id: number;
-  plan: "monthly" | "annual";
+  plan: "monthly" | "annual" | "concours";
   status: "active" | "expired" | "cancelled" | "pending";
   price: number;
   start_date: string | null;
@@ -210,6 +211,7 @@ export interface SearchFilters {
   min_rating?: number;
   online?: boolean;
   verified?: boolean;
+  concours?: boolean;
   q?: string;
   ordering?: string;
   lat?: number;
@@ -248,6 +250,19 @@ export interface GroupSession {
     created_at: string;
   }[];
   created_at?: string;
+}
+
+export interface ConcoursEvent {
+  id: number;
+  type: "BAC" | "BEPC" | "ENI" | "CAT" | "ENA" | "ENAM" | "FMPOS" | "other";
+  type_display: string;
+  title: string;
+  year: number;
+  date_inscription_limite: string | null;
+  date_examen: string;
+  description: string;
+  days_until_inscription: number | null;
+  days_until_examen: number;
 }
 
 export interface AuthTokens {

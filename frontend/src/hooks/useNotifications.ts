@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getAccessToken } from "@/lib/api";
+import { notifications as notificationsApi } from "@/lib/api";
 import { useAuth } from "./useAuth";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export function useNotifications(pollIntervalMs = 30_000) {
   const { isLoggedIn } = useAuth();
@@ -12,17 +10,11 @@ export function useNotifications(pollIntervalMs = 30_000) {
 
   const fetch_ = useCallback(async () => {
     if (!isLoggedIn) return;
-    const token = getAccessToken();
-    if (!token) return;
     try {
-      const res = await fetch(`${API}/notifications/unread-count/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await notificationsApi.getUnreadCount();
       setUnreadCount(data.unread_count ?? 0);
     } catch {
-      // silently ignore
+      // silently ignore (apiFetch gère le refresh et redirige si session expirée)
     }
   }, [isLoggedIn]);
 
@@ -33,12 +25,12 @@ export function useNotifications(pollIntervalMs = 30_000) {
   }, [fetch_, pollIntervalMs]);
 
   const markAllRead = useCallback(async () => {
-    const token = getAccessToken();
-    await fetch(`${API}/notifications/read-all/`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    }).catch(() => {});
-    setUnreadCount(0);
+    try {
+      await notificationsApi.markAllRead();
+      setUnreadCount(0);
+    } catch {
+      // silently ignore
+    }
   }, []);
 
   return { unreadCount, refresh: fetch_, markAllRead };

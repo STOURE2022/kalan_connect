@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SlidersHorizontal, X, LocateFixed, Loader2 } from "lucide-react";
+import { SlidersHorizontal, X, LocateFixed, Loader2, Trophy } from "lucide-react";
 import { teachers as teachersApi } from "@/lib/api";
 import type { Subject, Level, SearchFilters as FiltersType } from "@/types";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,6 @@ export default function SearchFilters({ filters, onChange }: SearchFiltersProps)
   const [levels, setLevels] = useState<Level[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
-
   useEffect(() => {
     teachersApi.getSubjects().then(setSubjects).catch(() => {});
     teachersApi.getLevels().then(setLevels).catch(() => {});
@@ -76,7 +75,7 @@ export default function SearchFilters({ filters, onChange }: SearchFiltersProps)
   };
 
   const activeCount = Object.entries(filters).filter(
-    ([k, v]) => v !== undefined && v !== "" && !["page", "ordering", "lat", "lng", "radius"].includes(k)
+    ([k, v]) => v !== undefined && v !== "" && !["page", "ordering", "lat", "lng", "radius", "concours"].includes(k)
   ).length;
 
   return (
@@ -118,6 +117,30 @@ export default function SearchFilters({ filters, onChange }: SearchFiltersProps)
             Près de moi
           </button>
         )}
+
+        {/* Spécialistes Concours */}
+        <button
+          type="button"
+          onClick={() => {
+            update("concours", filters.concours ? undefined : true);
+          }}
+          className={cn(
+            "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
+            filters.concours
+              ? "border-amber-300 bg-amber-50 text-amber-700"
+              : "border-gray-200 bg-white text-gray-500 hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"
+          )}
+        >
+          <Trophy size={14} className={filters.concours ? "text-amber-500" : ""} />
+          Concours
+          {filters.concours && (
+            <X
+              size={12}
+              className="ml-0.5 text-amber-500"
+              onClick={(e) => { e.stopPropagation(); update("concours", undefined); }}
+            />
+          )}
+        </button>
 
         {/* Subject */}
         <select

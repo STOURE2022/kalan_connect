@@ -2,7 +2,10 @@
 KalanConnect — Views Réservations, Avis, Packs & Signalements
 """
 
+import datetime
+
 from django.db.models import Avg
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -347,3 +350,120 @@ class ReportAdminUpdateView(generics.UpdateAPIView):
     serializer_class = ReportAdminSerializer
     permission_classes = [IsAdmin]
     queryset = Report.objects.all()
+
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def progression_stats_teacher(request):
+    """GET /api/v1/bookings/progression/teacher/ — Stats d'accomplissement du prof"""
+    completed = Booking.objects.filter(
+        teacher__user=request.user,
+        status=Booking.Status.COMPLETED,
+    ).select_related("subject", "parent")
+
+    sessions_count = completed.count()
+
+    total_minutes = 0
+    for b in completed:
+        try:
+            start = datetime.datetime.combine(datetime.date.today(), b.start_time)
+            end   = datetime.datetime.combine(datetime.date.today(), b.end_time)
+            diff  = (end - start).seconds // 60
+            if diff > 0:
+                total_minutes += diff
+        except Exception:
+            pass
+
+    hours_total   = round(total_minutes / 60, 1)
+    minutes_extra = total_minutes % 60
+
+    subjects = (
+        completed.exclude(subject=None)
+        .values_list("subject__name", flat=True)
+        .distinct()
+    )
+
+    students_count = (
+        completed.values("parent").distinct().count()
+    )
+
+    # Note moyenne reçue
+    from django.db.models import Avg as DjAvg
+    from kalanconnect.bookings.models import Review
+    avg = Review.objects.filter(
+        teacher__user=request.user
+    ).aggregate(avg=DjAvg("rating"))["avg"]
+
+    return Response({
+        "sessions_count": sessions_count,
+        "hours_total": hours_total,
+        "minutes_extra": minutes_extra,
+        "subjects": list(subjects),
+        "students_count": students_count,
+        "avg_rating": round(avg, 1) if avg else None,
+    })
+
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def progression_stats(request):
+    """GET /api/v1/bookings/progression/ — Stats de progression de l'utilisateur"""
+    from kalanconnect.sessions.models import ConcoursEvent
+
+    completed = Booking.objects.filter(
+        parent=request.user,
+        status=Booking.Status.COMPLETED,
+    ).select_related("subject")
+
+    sessions_count = completed.count()
+
+    # Calcul des heures totales depuis start_time / end_time
+    total_minutes = 0
+    for b in completed:
+        try:
+            start = datetime.datetime.combine(datetime.date.today(), b.start_time)
+            end   = datetime.datetime.combine(datetime.date.today(), b.end_time)
+            diff  = (end - start).seconds // 60
+            if diff > 0:
+                total_minutes += diff
+        except Exception:
+            pass
+
+    hours_total   = round(total_minutes / 60, 1)
+    minutes_extra = total_minutes % 60
+
+    # Matières travaillées (distinctes)
+    subjects = (
+        completed.exclude(subject=None)
+        .values_list("subject__name", flat=True)
+        .distinct()
+    )
+
+    # Prochain concours
+    next_concours = (
+        ConcoursEvent.objects.filter(
+            is_active=True,
+            date_examen__gte=timezone.now().date(),
+        )
+        .order_by("date_examen")
+        .first()
+    )
+
+    next_concours_data = None
+    if next_concours:
+        days_until = (next_concours.date_examen - timezone.now().date()).days
+        next_concours_data = {
+            "title": next_concours.title,
+            "type": next_concours.type,
+            "type_display": next_concours.get_type_display(),
+            "date_examen": next_concours.date_examen.isoformat(),
+            "days_until": max(days_until, 0),
+        }
+
+    return Response({
+        "sessions_count": sessions_count,
+        "hours_total": hours_total,
+        "minutes_extra": minutes_extra,
+        "subjects": list(subjects),
+        "next_concours": next_concours_data,
+    })

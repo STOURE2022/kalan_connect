@@ -48,6 +48,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     other_participant = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
+    free_messages_used = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -57,6 +58,7 @@ class ConversationSerializer(serializers.ModelSerializer):
             "last_message",
             "unread_count",
             "last_message_at",
+            "free_messages_used",
         ]
 
     def get_other_participant(self, obj):
@@ -84,6 +86,11 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_unread_count(self, obj):
         user = self.context["request"].user
         return obj.messages.filter(is_read=False).exclude(sender=user).count()
+
+    def get_free_messages_used(self, obj):
+        """Nombre de messages envoyés par cet utilisateur dans cette conversation."""
+        user = self.context["request"].user
+        return obj.messages.filter(sender=user).count()
 
 
 class NotificationSerializer(serializers.ModelSerializer):

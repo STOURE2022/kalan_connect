@@ -276,3 +276,39 @@ SUBSCRIPTION_PLANS = {
         "duration_days": 90,
     },
 }
+
+# Nombre de messages gratuits avant qu'un abonnement soit requis
+FREE_MESSAGES_LIMIT = 3
+
+# ──────────────────────────────────────────────
+# Celery Beat — Tâches planifiées
+# ──────────────────────────────────────────────
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    # Expiration des abonnements — toutes les heures
+    "check-expired-subscriptions": {
+        "task": "kalanconnect.payments.tasks.check_expired_subscriptions",
+        "schedule": crontab(minute=0),
+    },
+    # Réconciliation paiements en attente — toutes les heures
+    "reconcile-pending-payments": {
+        "task": "kalanconnect.payments.tasks.reconcile_pending_payments",
+        "schedule": crontab(minute=30),
+    },
+    # Rappel expiration abonnement — quotidien à 9h00
+    "subscription-expiry-reminder": {
+        "task": "kalanconnect.payments.tasks.send_subscription_expiry_reminder",
+        "schedule": crontab(hour=9, minute=0),
+    },
+    # Alertes concours J-7 / J-1 — quotidien à 8h00
+    "send-concours-alerts": {
+        "task": "kalanconnect.sessions.tasks.send_concours_alerts",
+        "schedule": crontab(hour=8, minute=0),
+    },
+    # Clôture automatique sessions expirées — toutes les heures
+    "mark-completed-sessions": {
+        "task": "kalanconnect.sessions.tasks.mark_completed_sessions",
+        "schedule": crontab(minute=0),
+    },
+}

@@ -2,19 +2,37 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Menu, X, Search, User as UserIcon, Bell } from "lucide-react";
+import { Menu, X, Search, User as UserIcon, Bell, Trophy, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
-import { sessions as sessionsApi } from "@/lib/api";
+import { sessions as sessionsApi, concours as concoursApi } from "@/lib/api";
+import type { ConcoursEvent } from "@/types";
 
 export default function Navbar() {
-  const { user, isLoggedIn, logout } = useAuth();
+  const { user, isLoggedIn, logout, isTeacher, isAdmin } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { unreadCount } = useNotifications();
   const [openSessionsCount, setOpenSessionsCount] = useState(0);
+  const [urgentConcours, setUrgentConcours] = useState<ConcoursEvent | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
-    sessionsApi.list({ status: "open" })
+    concoursApi.list().then((events) => {
+      const urgent = events
+        .filter((e) => e.days_until_examen <= 30)
+        .sort((a, b) => a.days_until_examen - b.days_until_examen)[0] ?? null;
+      if (urgent) {
+        const key = `concours_banner_${urgent.id}`;
+        if (sessionStorage.getItem(key)) {
+          setBannerDismissed(true);
+        }
+        setUrgentConcours(urgent);
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    sessionsApi.list({ status: "open", date: "upcoming" })
       .then((res) => setOpenSessionsCount(res.count ?? 0))
       .catch(() => {});
   }, []);
@@ -52,9 +70,23 @@ export default function Navbar() {
               </span>
             )}
           </Link>
+          <Link
+            href="/concours"
+            className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-amber-600"
+          >
+            <Trophy size={15} className="text-amber-500" />
+            Concours
+          </Link>
 
           {isLoggedIn ? (
             <div className="flex items-center gap-4">
+              <Link
+                href={isTeacher ? "/dashboard/teacher" : isAdmin ? "/dashboard/admin" : "/dashboard"}
+                className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-primary-600"
+              >
+                <LayoutDashboard size={15} />
+                Mon espace
+              </Link>
               <Link
                 href="/chat"
                 className="text-sm font-medium text-gray-600 hover:text-primary-600"
@@ -131,6 +163,44 @@ export default function Navbar() {
         </div>
       </nav>
 
+      {/* Concours urgency banner */}
+      {urgentConcours && !bannerDismissed && (
+        <div className="flex items-center justify-between gap-3 bg-amber-50 border-t border-amber-200 px-4 py-2 text-sm">
+          <div className="flex items-center gap-2 text-amber-800 min-w-0">
+            <Trophy size={14} className="flex-shrink-0 text-amber-600" />
+            <span className="truncate">
+              <span className="font-semibold">{urgentConcours.type_display}</span>
+              {" — "}
+              {urgentConcours.days_until_examen === 0
+                ? "Examen aujourd'hui !"
+                : urgentConcours.days_until_examen === 1
+                ? "Examen demain !"
+                : `Examen dans ${urgentConcours.days_until_examen} jour${urgentConcours.days_until_examen > 1 ? "s" : ""}`}
+              {urgentConcours.days_until_inscription !== null && urgentConcours.days_until_inscription >= 0 && (
+                <span className="ml-2 text-amber-600">
+                  · Inscriptions : J-{urgentConcours.days_until_inscription}
+                </span>
+              )}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <a href="/concours" className="font-medium text-amber-700 hover:text-amber-900 underline underline-offset-2">
+              Voir les détails
+            </a>
+            <button
+              onClick={() => {
+                sessionStorage.setItem(`concours_banner_${urgentConcours.id}`, "1");
+                setBannerDismissed(true);
+              }}
+              className="text-amber-500 hover:text-amber-700"
+              aria-label="Fermer"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="border-t border-gray-100 bg-white px-4 py-4 md:hidden">
@@ -154,8 +224,24 @@ export default function Navbar() {
                 </span>
               )}
             </Link>
+            <Link
+              href="/concours"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-amber-50 hover:text-amber-700"
+              onClick={() => setMobileOpen(false)}
+            >
+              <Trophy size={15} className="text-amber-500" />
+              Concours
+            </Link>
             {isLoggedIn ? (
               <>
+                <Link
+                  href={isTeacher ? "/dashboard/teacher" : isAdmin ? "/dashboard/admin" : "/dashboard"}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <LayoutDashboard size={15} className="text-gray-400" />
+                  Mon espace
+                </Link>
                 <Link
                   href="/chat"
                   className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"

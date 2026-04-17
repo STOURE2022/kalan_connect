@@ -55,7 +55,8 @@ def popular_subjects(request):
     """
     city = request.query_params.get("city", "Bamako")
 
-    subjects = (
+    # Matières avec profs disponibles dans la ville
+    subjects = list(
         Subject.objects.filter(
             is_active=True,
             teachers__city__iexact=city,
@@ -65,13 +66,8 @@ def popular_subjects(request):
         .order_by("-teacher_count")[:8]
     )
 
-    data = []
-    for subject in subjects:
-        data.append(
-            {
-                **SubjectSerializer(subject).data,
-                "teacher_count": subject.teacher_count,
-            }
-        )
-
+    data = [
+        {**SubjectSerializer(s).data, "teacher_count": s.teacher_count}
+        for s in subjects
+    ]
     return Response(data)

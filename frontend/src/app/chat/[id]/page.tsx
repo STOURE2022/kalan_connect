@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Send, CheckCheck, Check,
-  Paperclip, X, FileText, Smile,
+  Paperclip, X, FileText, Smile, Lock,
 } from "lucide-react";
 import { chat as chatApi } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
@@ -54,7 +54,7 @@ function TypingDots() {
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="h-2 w-2 rounded-full bg-white/40 animate-bounce"
+          className="h-2 w-2 rounded-full bg-gray-400 animate-bounce"
           style={{ animationDelay: `${i * 0.15}s` }}
         />
       ))}
@@ -65,28 +65,26 @@ function TypingDots() {
 function EmojiPicker({ onPick }: { onPick: (e: string) => void }) {
   const [tab, setTab] = useState(0);
   return (
-    <div className="absolute bottom-full mb-2 left-0 z-50 w-72 rounded-2xl bg-[#1a1c28] border border-white/10 shadow-2xl overflow-hidden">
-      {/* Tabs */}
-      <div className="flex border-b border-white/5">
+    <div className="absolute bottom-full mb-2 left-0 z-50 w-72 rounded-2xl bg-white border border-gray-200 shadow-xl overflow-hidden">
+      <div className="flex border-b border-gray-100">
         {EMOJI_GROUPS.map((g, i) => (
           <button
             key={g.label}
             onClick={() => setTab(i)}
-            className={`flex-1 py-2 text-xs font-medium transition-colors ${
-              tab === i ? "text-primary-400 border-b-2 border-primary-400" : "text-white/40 hover:text-white/70"
+            className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
+              tab === i ? "text-primary-600 border-b-2 border-primary-500" : "text-gray-400 hover:text-gray-600"
             }`}
           >
             {g.label}
           </button>
         ))}
       </div>
-      {/* Grid */}
       <div className="grid grid-cols-8 gap-0.5 p-2 max-h-40 overflow-y-auto">
         {EMOJI_GROUPS[tab].emojis.map((emoji) => (
           <button
             key={emoji}
             onClick={() => onPick(emoji)}
-            className="flex items-center justify-center h-8 w-8 rounded-lg text-lg hover:bg-white/10 transition-colors"
+            className="flex items-center justify-center h-8 w-8 rounded-lg text-lg hover:bg-gray-100 transition-colors"
           >
             {emoji}
           </button>
@@ -96,7 +94,7 @@ function EmojiPicker({ onPick }: { onPick: (e: string) => void }) {
   );
 }
 
-function MessageBubbleContent({ msg }: { msg: Message }) {
+function MessageBubbleContent({ msg, isMine }: { msg: Message; isMine: boolean }) {
   if (msg.message_type === "image" && msg.attachment_url) {
     return (
       <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
@@ -116,7 +114,7 @@ function MessageBubbleContent({ msg }: { msg: Message }) {
         href={msg.attachment_url}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-2 text-sm underline underline-offset-2 opacity-90 hover:opacity-100"
+        className={`flex items-center gap-2 text-sm underline underline-offset-2 ${isMine ? "text-white/90 hover:text-white" : "text-primary-600 hover:text-primary-700"}`}
       >
         <FileText size={16} className="flex-shrink-0" />
         <span className="truncate max-w-[200px]">{msg.attachment_name ?? "Fichier"}</span>
@@ -131,7 +129,7 @@ function MessageBubbleContent({ msg }: { msg: Message }) {
 export default function ChatRoomPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, hasSubscription } = useAuth();
 
   const conversationId = Number(params.id);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -143,6 +141,10 @@ export default function ChatRoomPage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [freeMessagesUsed, setFreeMessagesUsed] = useState(0);
+
+  const FREE_LIMIT = 3;
+  const isLimitReached = !hasSubscription && freeMessagesUsed >= FREE_LIMIT;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -155,7 +157,6 @@ export default function ChatRoomPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "instant" });
   }, []);
 
-  // Close emoji picker on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) {
@@ -166,13 +167,15 @@ export default function ChatRoomPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Load messages + conversation
   useEffect(() => {
     Promise.all([chatApi.getMessages(conversationId), chatApi.getConversations()])
       .then(([msgData, convData]) => {
         setMessages(msgData.results);
         const conv = convData.results.find((c: Conversation) => c.id === conversationId);
-        if (conv) setOtherUser(conv.other_participant);
+        if (conv) {
+          setOtherUser(conv.other_participant);
+          setFreeMessagesUsed(conv.free_messages_used ?? 0);
+        }
         chatApi.markAsRead(conversationId);
       })
       .finally(() => {
@@ -185,7 +188,6 @@ export default function ChatRoomPage() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // WebSocket
   useEffect(() => {
     const ws = chatApi.connectWebSocket(conversationId);
     wsRef.current = ws;
@@ -215,9 +217,13 @@ export default function ChatRoomPage() {
           },
         ]);
         setSending(false);
+        if (data.data.sender_id === user?.id && !hasSubscription) {
+          setFreeMessagesUsed((prev) => prev + 1);
+        }
       }
       if (data.type === "typing") setIsTyping(data.is_typing);
       if (data.type === "read") setMessages((prev) => prev.map((m) => ({ ...m, is_read: true })));
+      if (data.type === "message_limit") setFreeMessagesUsed(FREE_LIMIT);
     };
 
     return () => ws.close();
@@ -225,14 +231,13 @@ export default function ChatRoomPage() {
 
   const sendMessage = () => {
     const content = newMessage.trim();
-    if (!content || !wsRef.current) return;
+    if (!content || !wsRef.current || isLimitReached) return;
     setSending(true);
     wsRef.current.send(JSON.stringify({ type: "text", content }));
     setNewMessage("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
-  // Upload attachment — do NOT add to state here, WS broadcast will deliver it
   const sendAttachment = async () => {
     if (!pendingFile) return;
     setSending(true);
@@ -269,7 +274,6 @@ export default function ChatRoomPage() {
     const end = ta.selectionEnd ?? newMessage.length;
     const updated = newMessage.slice(0, start) + emoji + newMessage.slice(end);
     setNewMessage(updated);
-    // Restore cursor after emoji
     requestAnimationFrame(() => {
       ta.selectionStart = ta.selectionEnd = start + emoji.length;
       ta.focus();
@@ -303,12 +307,13 @@ export default function ChatRoomPage() {
   if (loading) return <PageLoader />;
 
   return (
-    <div className="flex h-[calc(100dvh-64px)] flex-col bg-[#0d0f17]">
+    <div className="flex h-[calc(100dvh-64px)] flex-col overflow-hidden bg-gray-50">
+
       {/* ── Header ── */}
-      <div className="flex-shrink-0 flex items-center gap-3 bg-[#13151f] border-b border-white/5 px-4 py-3 shadow-sm">
+      <div className="flex-shrink-0 flex items-center gap-3 bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
         <button
           onClick={() => router.push("/chat")}
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-white/70"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-gray-500"
         >
           <ArrowLeft size={18} />
         </button>
@@ -317,18 +322,21 @@ export default function ChatRoomPage() {
           <>
             <div className="relative">
               <Avatar src={otherUser.avatar} firstName={otherUser.first_name} lastName={otherUser.last_name} size="md" />
-              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-primary-400 ring-2 ring-[#13151f]" />
+              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-semibold text-white truncate">
+              <h2 className="text-sm font-bold text-gray-900 truncate">
                 {otherUser.first_name} {otherUser.last_name}
               </h2>
-              <p className="text-xs text-primary-400">{isTyping ? "En train d'écrire..." : "En ligne"}</p>
+              <p className={`text-xs font-medium ${isTyping ? "text-primary-500" : "text-emerald-500"}`}>
+                {isTyping ? "En train d'écrire..." : "En ligne"}
+              </p>
             </div>
           </>
         ) : (
           <div className="flex-1">
-            <div className="h-4 w-32 animate-pulse rounded bg-white/10" />
+            <div className="h-4 w-32 animate-pulse rounded-full bg-gray-200" />
+            <div className="mt-1 h-3 w-16 animate-pulse rounded-full bg-gray-100" />
           </div>
         )}
       </div>
@@ -336,12 +344,14 @@ export default function ChatRoomPage() {
       {/* ── Messages ── */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-3">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-              <Send size={28} className="text-white/20 -rotate-12" />
+          <div className="flex flex-col items-center justify-center h-full text-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 border border-primary-100">
+              <Send size={26} className="text-primary-400 -rotate-12" />
             </div>
-            <p className="text-sm font-medium text-white/30">Aucun message pour l&apos;instant</p>
-            <p className="text-xs text-white/20">Soyez le premier à dire bonjour 👋</p>
+            <div>
+              <p className="text-sm font-semibold text-gray-700">Aucun message pour l&apos;instant</p>
+              <p className="mt-1 text-xs text-gray-400">Soyez le premier à dire bonjour 👋</p>
+            </div>
           </div>
         ) : (
           <>
@@ -355,11 +365,11 @@ export default function ChatRoomPage() {
                 <div key={msg.id}>
                   {showDay && (
                     <div className="flex items-center gap-3 py-4">
-                      <div className="flex-1 h-px bg-white/5" />
-                      <span className="text-[11px] font-medium text-white/30 px-3 py-1 rounded-full bg-white/5">
+                      <div className="flex-1 h-px bg-gray-200" />
+                      <span className="text-[11px] font-semibold text-gray-400 px-3 py-1 rounded-full bg-white border border-gray-100 shadow-sm">
                         {fmtDay(msg.created_at)}
                       </span>
-                      <div className="flex-1 h-px bg-white/5" />
+                      <div className="flex-1 h-px bg-gray-200" />
                     </div>
                   )}
 
@@ -369,22 +379,22 @@ export default function ChatRoomPage() {
                         <Avatar src={otherUser?.avatar ?? null} firstName={msg.sender.first_name} lastName={msg.sender.last_name} size="sm" />
                       </div>
                     )}
-                    <div className={`flex flex-col gap-0.5 max-w-[72%] ${isMine ? "items-end" : "items-start"}`}>
+                    <div className={`flex flex-col gap-0.5 max-w-[72%] sm:max-w-[60%] ${isMine ? "items-end" : "items-start"}`}>
                       <div
-                        className={`px-4 py-2.5 ${
+                        className={`px-4 py-2.5 shadow-sm ${
                           isMine
-                            ? "bg-primary-500 text-white rounded-2xl rounded-br-sm"
-                            : "bg-[#1e2130] text-white/90 rounded-2xl rounded-bl-sm"
+                            ? "bg-primary-500 text-white rounded-2xl rounded-br-md"
+                            : "bg-white border border-gray-100 text-gray-800 rounded-2xl rounded-bl-md"
                         }`}
                       >
-                        <MessageBubbleContent msg={msg} />
+                        <MessageBubbleContent msg={msg} isMine={isMine} />
                       </div>
                       <div className={`flex items-center gap-1 px-1 ${isMine ? "flex-row-reverse" : ""}`}>
-                        <span className="text-[10px] text-white/25">{fmtTime(msg.created_at)}</span>
+                        <span className="text-[10px] text-gray-400">{fmtTime(msg.created_at)}</span>
                         {isMine && isLast && (
                           msg.is_read
                             ? <CheckCheck size={12} className="text-primary-400" />
-                            : <Check size={12} className="text-white/25" />
+                            : <Check size={12} className="text-gray-300" />
                         )}
                       </div>
                     </div>
@@ -400,7 +410,7 @@ export default function ChatRoomPage() {
                     <Avatar src={otherUser.avatar} firstName={otherUser.first_name} lastName={otherUser.last_name} size="sm" />
                   </div>
                 )}
-                <div className="bg-[#1e2130] rounded-2xl rounded-bl-sm">
+                <div className="bg-white border border-gray-100 rounded-2xl rounded-bl-md shadow-sm">
                   <TypingDots />
                 </div>
               </div>
@@ -412,25 +422,25 @@ export default function ChatRoomPage() {
 
       {/* ── File preview ── */}
       {pendingFile && (
-        <div className="flex-shrink-0 bg-[#13151f] border-t border-white/5 px-4 pt-3">
-          <div className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2">
+        <div className="flex-shrink-0 bg-white border-t border-gray-100 px-4 pt-3">
+          <div className="flex items-center gap-3 rounded-xl bg-gray-50 border border-gray-200 px-3 py-2">
             {pendingPreview ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={pendingPreview} alt="preview" className="h-12 w-12 rounded-lg object-cover flex-shrink-0" />
             ) : (
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-white/10">
-                <FileText size={20} className="text-white/50" />
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100">
+                <FileText size={20} className="text-gray-400" />
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-white truncate">{pendingFile.name}</p>
-              <p className="text-[11px] text-white/40">
+              <p className="text-xs font-semibold text-gray-700 truncate">{pendingFile.name}</p>
+              <p className="text-[11px] text-gray-400">
                 {pendingPreview ? "Image" : "Fichier"} · {(pendingFile.size / 1024).toFixed(0)} Ko
               </p>
             </div>
             <button
               onClick={clearPendingFile}
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white/60"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-colors text-gray-500"
             >
               <X size={14} />
             </button>
@@ -438,8 +448,37 @@ export default function ChatRoomPage() {
         </div>
       )}
 
+      {/* ── Banner limite messages ── */}
+      {isLimitReached && (
+        <div className="flex-shrink-0 bg-amber-50 border-t border-amber-200 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Lock size={14} className="flex-shrink-0 text-amber-500" />
+              <p className="text-xs text-amber-800">
+                Vous avez utilisé vos <strong>3 messages gratuits</strong>. Abonnez-vous pour continuer.
+              </p>
+            </div>
+            <a
+              href="/payment"
+              className="flex-shrink-0 rounded-xl bg-amber-500 px-4 py-1.5 text-xs font-bold text-white hover:bg-amber-600 transition-colors shadow-sm"
+            >
+              S&apos;abonner
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* ── Compteur messages gratuits ── */}
+      {!hasSubscription && !isLimitReached && freeMessagesUsed > 0 && (
+        <div className="flex-shrink-0 px-4 py-1.5 bg-white border-t border-gray-100">
+          <p className="text-center text-[11px] text-gray-400">
+            {FREE_LIMIT - freeMessagesUsed} message{FREE_LIMIT - freeMessagesUsed > 1 ? "s" : ""} gratuit{FREE_LIMIT - freeMessagesUsed > 1 ? "s" : ""} restant{FREE_LIMIT - freeMessagesUsed > 1 ? "s" : ""}
+          </p>
+        </div>
+      )}
+
       {/* ── Input ── */}
-      <div className="flex-shrink-0 bg-[#13151f] border-t border-white/5 px-4 py-3">
+      <div className="flex-shrink-0 bg-white border-t border-gray-100 px-4 py-3">
         <input
           ref={fileInputRef}
           type="file"
@@ -452,20 +491,22 @@ export default function ChatRoomPage() {
           {/* Attachment */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex-shrink-0 flex h-[46px] w-[46px] items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 transition-colors text-white/50 hover:text-white/80"
+            className="flex-shrink-0 flex h-[46px] w-[46px] items-center justify-center rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-gray-400 hover:text-gray-600"
           >
-            <Paperclip size={20} className={pendingFile ? "text-primary-400" : ""} />
+            <Paperclip size={19} className={pendingFile ? "text-primary-500" : ""} />
           </button>
 
           {/* Emoji */}
           <div className="relative flex-shrink-0" ref={emojiRef}>
             <button
               onClick={() => setShowEmoji((v) => !v)}
-              className={`flex h-[46px] w-[46px] items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 transition-colors ${
-                showEmoji ? "text-primary-400" : "text-white/50 hover:text-white/80"
+              className={`flex h-[46px] w-[46px] items-center justify-center rounded-2xl border transition-colors ${
+                showEmoji
+                  ? "border-primary-300 bg-primary-50 text-primary-500"
+                  : "border-gray-200 bg-white text-gray-400 hover:bg-gray-50 hover:text-gray-600"
               }`}
             >
-              <Smile size={20} />
+              <Smile size={19} />
             </button>
             {showEmoji && <EmojiPicker onPick={insertEmoji} />}
           </div>
@@ -477,10 +518,10 @@ export default function ChatRoomPage() {
               value={newMessage}
               onChange={handleInput}
               onKeyDown={handleKeyDown}
-              placeholder={pendingFile ? "Message optionnel..." : "Votre message..."}
+              placeholder={isLimitReached ? "Abonnez-vous pour continuer..." : pendingFile ? "Message optionnel..." : "Votre message..."}
               rows={1}
-              disabled={!!pendingFile}
-              className="w-full resize-none rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-primary-500/50 transition-colors max-h-32 leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!!pendingFile || isLimitReached}
+              className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 placeholder-gray-400 outline-none focus:border-primary-400 focus:bg-white transition-all max-h-32 leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ height: "auto", minHeight: "46px" }}
             />
           </div>
@@ -488,8 +529,8 @@ export default function ChatRoomPage() {
           {/* Send */}
           <button
             onClick={pendingFile ? sendAttachment : sendMessage}
-            disabled={(!newMessage.trim() && !pendingFile) || sending}
-            className="flex-shrink-0 flex h-[46px] w-[46px] items-center justify-center rounded-2xl bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            disabled={(!newMessage.trim() && !pendingFile) || sending || isLimitReached}
+            className="flex-shrink-0 flex h-[46px] w-[46px] items-center justify-center rounded-2xl bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm shadow-primary-500/30"
           >
             {sending
               ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
