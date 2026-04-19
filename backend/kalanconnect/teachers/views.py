@@ -281,7 +281,7 @@ def teacher_autocomplete(request):
     return Response(
         {
             "subjects": SubjectSerializer(subjects, many=True).data,
-            "teachers": TeacherProfileListSerializer(teachers, many=True).data,
+            "teachers": TeacherProfileListSerializer(teachers, many=True, context={"request": request}).data,
         }
     )
 
